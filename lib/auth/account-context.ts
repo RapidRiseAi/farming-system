@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
+import type { UserRole } from '@/lib/auth/role-redirect';
 
 export type AccountContext = {
   userId: string;
-  role: 'admin' | 'technician' | 'customer';
+  role: UserRole;
   workshopAccountId: string;
   customerAccountId: string | null;
 };
@@ -31,7 +32,7 @@ export async function getAccountContext(): Promise<AccountContext | null> {
 
   return {
     userId: user.id,
-    role: profile.role,
+    role: profile.role as UserRole,
     workshopAccountId: profile.workshop_account_id,
     customerAccountId: customerAccount?.id ?? null
   };

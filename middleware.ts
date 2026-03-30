@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { CookieOptions } from '@supabase/ssr';
-import { getDashboardPathForRole, type UserRole } from '@/lib/auth/role-redirect';
+import { getDashboardPathForRole, isFarmRole, type UserRole } from '@/lib/auth/role-redirect';
 import { shouldBypassMiddlewareForRequest } from '@/lib/auth/middleware-guards';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
@@ -9,7 +9,6 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request });
 
-  // Let Next.js server-action internals proceed without middleware side-effects.
   if (shouldBypassMiddlewareForRequest(request.headers)) {
     return response;
   }
@@ -36,8 +35,9 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isWorkshopRoute = path.startsWith('/workshop');
   const isCustomerRoute = path.startsWith('/customer');
+  const isFarmRoute = path.startsWith('/farm');
 
-  if ((isWorkshopRoute || isCustomerRoute) && !user) {
+  if ((isWorkshopRoute || isCustomerRoute || isFarmRoute) && !user) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -52,11 +52,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(getDashboardPathForRole(role), request.url));
   }
 
-  if (isWorkshopRoute && role !== 'admin') {
+  if (isCustomerRoute && role !== 'customer') {
     return NextResponse.redirect(new URL(getDashboardPathForRole(role), request.url));
   }
 
-  if (isCustomerRoute && role !== 'customer') {
+  if ((isWorkshopRoute || isFarmRoute) && !isFarmRole(role)) {
     return NextResponse.redirect(new URL(getDashboardPathForRole(role), request.url));
   }
 

@@ -11,7 +11,7 @@ export async function NotificationsMenu() {
     supabase.from('customer_accounts').select('id').eq('auth_user_id', user.id).maybeSingle()
   ]);
 
-  const isWorkshop = profile?.role === 'admin' || profile?.role === 'technician';
+  const isWorkshop = profile?.role !== 'customer';
 
   let scopedNotificationsQuery = supabase.from('notifications').select('id,title,href,is_read,created_at,kind,data').is('deleted_at', null).order('created_at', { ascending: false }).limit(10);
   let scopedUnreadQuery = supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('is_read', false).is('deleted_at', null);

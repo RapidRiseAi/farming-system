@@ -7,6 +7,6 @@ export default async function NotificationsRedirectPage() {
   if (!user) redirect('/login');
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-  if (profile?.role === 'admin' || profile?.role === 'technician') redirect('/workshop/notifications');
+  if (profile?.role !== 'customer') redirect('/farm/dashboard');
   redirect('/customer/notifications');
 }
