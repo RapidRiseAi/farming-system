@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node tests/rls-sanity.test.mjs && node tests/timeline-feature.test.mjs",
     "format": "prettier --write .",
-    "db:seed": "psql \"$SUPABASE_DB_URL\" -f supabase/seed/seed.sql"
+    "db:seed": "psql \"$SUPABASE_DB_URL\" -f supabase/seed/seed.sql",
+    "db:migrate": "bash scripts/apply-migrations.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
