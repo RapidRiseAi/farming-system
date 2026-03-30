@@ -136,6 +136,19 @@ export async function signupCustomerAction(formData: FormData) {
     }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown signup initialization error';
+    const normalized = errorMessage.toLowerCase();
+
+    if (
+      normalized.includes("could not find the table 'public.profiles'") ||
+      normalized.includes('relation "profiles" does not exist') ||
+      normalized.includes("could not find the table 'public.workshop_accounts'") ||
+      normalized.includes('relation "workshop_accounts" does not exist')
+    ) {
+      redirect(
+        '/signup?error=Database%20is%20missing%20required%20tables%20(profiles/workshop_accounts).%20Apply%20all%20Supabase%20migrations%20to%20the%20same%20project%20used%20by%20your%20URL%20and%20keys.'
+      );
+    }
+
     redirect(`/signup?error=${encodeURIComponent(`Unable to initialize farm workspace: ${errorMessage}`)}`);
   }
 
