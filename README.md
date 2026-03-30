@@ -39,7 +39,7 @@ This migration introduces:
 1. `npm install`
 2. `cp .env.example .env.local`
 3. Configure Supabase env values
-4. Apply migrations in order
+4. Apply migrations in order: `npm run db:migrate`
 5. Run: `npm run dev`
 
 ## Checks
