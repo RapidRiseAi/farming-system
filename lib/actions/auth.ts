@@ -17,6 +17,46 @@ async function resolveAppUrl() {
   return 'http://localhost:3000';
 }
 
+function slugifyFarmName(input: string) {
+  const base = input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 42);
+
+  const fallback = base || 'farm';
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return `${fallback}-${suffix}`;
+}
+
+async function upsertProfileWithFallbackRole(admin: ReturnType<typeof createAdminClient>, userId: string, displayName: string) {
+  const ownerResult = await admin.from('profiles').upsert(
+    {
+      id: userId,
+      role: 'owner',
+      display_name: displayName
+    },
+    { onConflict: 'id' }
+  );
+
+  if (!ownerResult.error) return { role: 'owner' as const };
+
+  const fallbackResult = await admin.from('profiles').upsert(
+    {
+      id: userId,
+      role: 'admin',
+      display_name: displayName
+    },
+    { onConflict: 'id' }
+  );
+
+  if (fallbackResult.error) {
+    throw new Error(fallbackResult.error.message);
+  }
+
+  return { role: 'admin' as const };
+}
+
 export async function signupCustomerAction(formData: FormData) {
   const email = formData.get('email')?.toString().trim() ?? '';
   const password = formData.get('password')?.toString() ?? '';
@@ -59,39 +99,44 @@ export async function signupCustomerAction(formData: FormData) {
     const admin = createAdminClient();
     const resolvedDisplayName = displayName || email.split('@')[0] || 'Farm Owner';
 
-    await admin.from('profiles').upsert(
-      {
-        id: data.user.id,
-        role: 'owner',
-        display_name: resolvedDisplayName
-      },
-      { onConflict: 'id' }
-    );
+    const profileRole = await upsertProfileWithFallbackRole(admin, data.user.id, resolvedDisplayName);
 
-    const { data: existingProfile } = await admin
+    const { data: existingProfile, error: existingProfileError } = await admin
       .from('profiles')
       .select('workshop_account_id')
       .eq('id', data.user.id)
       .maybeSingle();
 
+    if (existingProfileError) {
+      throw new Error(existingProfileError.message);
+    }
+
     if (!existingProfile?.workshop_account_id) {
+      const farmTitle = farmName || `${resolvedDisplayName}'s Farm`;
+      const slug = slugifyFarmName(farmTitle);
+
       const { data: workshop, error: workshopError } = await admin
         .from('workshop_accounts')
-        .insert({ name: farmName || `${resolvedDisplayName}'s Farm` })
+        .insert({ name: farmTitle, slug })
         .select('id')
         .single();
 
       if (workshopError || !workshop) {
-        redirect('/signup?error=Unable%20to%20create%20farm%20workspace.%20Please%20check%20server%20keys.');
+        throw new Error(workshopError?.message ?? 'Unable to create workshop account.');
       }
 
-      await admin
+      const { error: profileUpdateError } = await admin
         .from('profiles')
-        .update({ workshop_account_id: workshop.id, role: 'owner' })
+        .update({ workshop_account_id: workshop.id, role: profileRole.role })
         .eq('id', data.user.id);
+
+      if (profileUpdateError) {
+        throw new Error(profileUpdateError.message);
+      }
     }
-  } catch {
-    redirect('/signup?error=Unable%20to%20initialize%20farm%20workspace.%20Please%20check%20environment%20variables.');
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown signup initialization error';
+    redirect(`/signup?error=${encodeURIComponent(`Unable to initialize farm workspace: ${errorMessage}`)}`);
   }
 
   const requiresEmailVerification = !data.session;
