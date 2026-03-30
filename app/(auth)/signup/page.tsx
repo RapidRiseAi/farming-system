@@ -6,9 +6,9 @@ import { SignupPlanSelector } from '@/components/auth/signup-plan-selector';
 import { AuthShell } from '@/components/auth/auth-shell';
 
 const plans = [
-  { key: 'basic', title: 'Plan 1', popular: false },
-  { key: 'pro', title: 'Plan 2', popular: true },
-  { key: 'business', title: 'Plan 3', popular: false }
+  { key: 'basic', title: 'Starter', popular: false },
+  { key: 'pro', title: 'Growth', popular: true },
+  { key: 'business', title: 'Enterprise', popular: false }
 ] as const;
 
 export default async function SignupPage({
@@ -21,11 +21,11 @@ export default async function SignupPage({
   return (
     <AuthShell>
       <Card className="relative w-full space-y-5 overflow-hidden rounded-3xl border border-black/10 bg-gradient-to-b from-white to-zinc-50/90 p-6 shadow-[0_34px_90px_rgba(15,23,42,0.22)] sm:p-10">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-brand-red" aria-hidden />
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500">Create your portal access</p>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-emerald-600" aria-hidden />
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500">Create your farm workspace</p>
         <h1 className="text-3xl font-bold text-gray-900 sm:text-[2rem]">Create account</h1>
         <p className="text-sm text-gray-700">
-          Track service history, quotes, invoices and documents.
+          Set up your farm operations system for tasks, assets, incidents, workforce and logs.
         </p>
 
         <div className="min-h-10">
@@ -39,13 +39,26 @@ export default async function SignupPage({
         <form action={signupCustomerAction} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="display-name" className="text-sm font-medium text-gray-700">
-              Display name
+              Your name
             </label>
             <input
               id="display-name"
               name="displayName"
-              className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-brand-red focus:outline-none focus:ring-2 focus:ring-brand-red/20"
-              placeholder="Display name"
+              className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+              placeholder="e.g. Sarah Mokoena"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="farm-name" className="text-sm font-medium text-gray-700">
+              Farm name
+            </label>
+            <input
+              id="farm-name"
+              name="farmName"
+              required
+              className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+              placeholder="e.g. Green Valley Farms"
             />
           </div>
 
@@ -58,7 +71,7 @@ export default async function SignupPage({
               name="email"
               type="email"
               required
-              className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-brand-red focus:outline-none focus:ring-2 focus:ring-brand-red/20"
+              className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
               placeholder="Email"
             />
           </div>
@@ -72,32 +85,19 @@ export default async function SignupPage({
               name="password"
               type="password"
               required
-              className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-brand-red focus:outline-none focus:ring-2 focus:ring-brand-red/20"
+              className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
               placeholder="Password"
               minLength={6}
             />
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="phone-number" className="text-sm font-medium text-gray-700">
-              Phone number (optional)
-            </label>
-            <input
-              id="phone-number"
-              name="phone"
-              type="tel"
-              className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-brand-red focus:outline-none focus:ring-2 focus:ring-brand-red/20"
-              placeholder="Phone number"
-            />
-          </div>
-
           <SignupPlanSelector plans={plans} />
-          <p className="text-xs font-medium text-gray-500">Choose a plan. You can upgrade anytime.</p>
+          <p className="text-xs font-medium text-gray-500">Choose a package. You can upgrade anytime.</p>
 
           <FormSubmitButton
-            idleLabel="Create account"
-            pendingLabel="Creating your account..."
-            transitionMessage="Creating your account..."
+            idleLabel="Create farm account"
+            pendingLabel="Creating your workspace..."
+            transitionMessage="Creating your farm workspace..."
           />
 
           <p className="text-xs text-gray-500">
@@ -108,7 +108,7 @@ export default async function SignupPage({
 
         <p className="text-sm text-gray-700">
           Already have an account?{' '}
-          <Link href="/login" className="font-semibold text-brand-red underline-offset-4 hover:underline">
+          <Link href="/login" className="font-semibold text-emerald-700 underline-offset-4 hover:underline">
             Sign in
           </Link>
         </p>

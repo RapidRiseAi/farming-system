@@ -5,16 +5,16 @@ import { AuthTransitionOverlay } from '@/components/auth/auth-transition-overlay
 function PortalOverviewPanel() {
   const items = [
     {
-      title: 'Single vehicle timeline',
-      text: 'All service activity in one view.'
+      title: 'Unified farm timeline',
+      text: 'Track tasks, incidents and inspections in one view.'
     },
     {
-      title: 'Documents and invoices',
-      text: 'Access files when you need them.'
+      title: 'Documents and records',
+      text: 'Store reports, proof photos and compliance docs.'
     },
     {
-      title: 'Clear status updates',
-      text: 'Know what is happening with your vehicle.'
+      title: 'Live team updates',
+      text: 'See what every worker completed and when.'
     }
   ];
 
@@ -22,7 +22,7 @@ function PortalOverviewPanel() {
     <section className="relative rounded-3xl border border-white/10 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
       <div className="pointer-events-none absolute inset-0 rounded-3xl opacity-25 [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:30px_30px]" />
       <div className="relative mb-4 border-b border-white/15 pb-3">
-        <span className="mb-2 inline-flex h-1.5 w-1.5 rounded-full bg-brand-red" aria-hidden />
+        <span className="mb-2 inline-flex h-1.5 w-1.5 rounded-full bg-emerald-600" aria-hidden />
         <h2 className="text-base font-semibold text-white">Portal overview</h2>
       </div>
       <div className="relative space-y-3">
@@ -46,13 +46,13 @@ function PortalOverviewPanel() {
 }
 
 function TodayPanel() {
-  const actions = ['Approve quotes', 'View unpaid invoices', 'Download documents'];
+  const actions = ['Assign field tasks', 'Review expense logs', 'Track maintenance progress'];
 
   return (
     <section className="relative rounded-3xl border border-white/10 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
       <div className="pointer-events-none absolute inset-0 rounded-3xl opacity-25 [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:30px_30px]" />
       <div className="relative mb-4 border-b border-white/15 pb-3">
-        <span className="mb-2 inline-flex h-1.5 w-6 rounded-full bg-brand-red" aria-hidden />
+        <span className="mb-2 inline-flex h-1.5 w-6 rounded-full bg-emerald-600" aria-hidden />
         <h2 className="text-base font-semibold text-white">Today you can</h2>
       </div>
       <ul className="relative space-y-2">
@@ -67,7 +67,7 @@ function TodayPanel() {
       </ul>
       <div className="relative mt-4 rounded-xl border border-white/10 bg-zinc-800/90 px-3 py-3">
         <p className="text-sm font-semibold text-white">Support</p>
-        <p className="mt-1 text-xs text-zinc-400">Need help? Contact the workshop.</p>
+        <p className="mt-1 text-xs text-zinc-400">Need help? Contact your farm admin.</p>
       </div>
       <p className="relative mt-4 inline-flex rounded-full border border-emerald-300/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-300">
         System online
@@ -92,16 +92,16 @@ export function AuthShell({ children }: { children: ReactNode }) {
       <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(to_right,rgba(17,24,39,0.1)_1px,transparent_1px),linear-gradient(to_bottom,rgba(17,24,39,0.1)_1px,transparent_1px)] [background-size:34px_34px]" />
       <div className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-multiply [background-image:radial-gradient(circle_at_1px_1px,rgba(15,23,42,0.75)_0.8px,transparent_0.8px)] [background-size:4px_4px]" />
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-[68%] -translate-y-1/2 rounded-full border border-slate-500/10 opacity-[0.05] sm:opacity-[0.04]" aria-hidden>
-        <span className="absolute inset-0 grid place-items-center text-[220px] font-black tracking-tight text-slate-800/70">TJ</span>
+        <span className="absolute inset-0 grid place-items-center text-[220px] font-black tracking-tight text-slate-800/70">FM</span>
       </div>
 
       <header className="relative z-10 h-16 border-b border-black/10 bg-white/92 shadow-[0_10px_24px_rgba(15,23,42,0.06)] backdrop-blur">
         <div className="mx-auto flex h-full w-full max-w-[1340px] items-center justify-between px-4 sm:px-6 lg:px-8">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500">Customer Portal</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500">Farm Operations Portal</p>
             <p className="inline-flex items-center text-lg font-semibold text-gray-900">
-              TJ Service &amp; Repairs
-              <span className="ml-2 mt-px inline-block h-1.5 w-1.5 rounded-full bg-brand-red" aria-hidden />
+              FarmOS
+              <span className="ml-2 mt-px inline-block h-1.5 w-1.5 rounded-full bg-emerald-600" aria-hidden />
             </p>
           </div>
           <nav className="flex items-center gap-5 text-sm text-gray-600">
@@ -119,7 +119,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           </aside>
 
           <section className="relative mx-auto w-full max-w-[600px]">
-            <div className="pointer-events-none absolute inset-x-8 -bottom-8 -top-8 rounded-[40px] bg-red-500/8 blur-3xl" aria-hidden />
+            <div className="pointer-events-none absolute inset-x-8 -bottom-8 -top-8 rounded-[40px] bg-emerald-500/10 blur-3xl" aria-hidden />
             {children}
           </section>
 

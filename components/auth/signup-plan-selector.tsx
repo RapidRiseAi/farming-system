@@ -4,14 +4,14 @@ import { useState } from 'react';
 
 type Plan = {
   key: 'basic' | 'pro' | 'business';
-  title: 'Plan 1' | 'Plan 2' | 'Plan 3';
+  title: 'Starter' | 'Growth' | 'Enterprise';
   popular: boolean;
 };
 
 const planBenefits: Record<Plan['key'], string[]> = {
-  basic: ['1 to 3 cars', '250MB storage', 'R200/month'],
-  pro: ['Up to 10 cars', '1GB storage', 'R500/month'],
-  business: ['Unlimited cars', '10GB storage', 'R1000/month']
+  basic: ['Up to 10 workers', 'Core task + asset logging', 'Starter support'],
+  pro: ['Advanced workflows + incidents', 'Workforce and expense dashboards', 'Priority support'],
+  business: ['Multi-site operations', 'Expanded records + exports', 'Enterprise onboarding']
 };
 
 export function SignupPlanSelector({ plans }: { plans: readonly Plan[] }) {
@@ -23,7 +23,7 @@ export function SignupPlanSelector({ plans }: { plans: readonly Plan[] }) {
         {plans.map((item) => (
           <label
             key={item.key}
-            className="relative cursor-pointer rounded-2xl border border-black/10 bg-white/90 p-3 transition-all has-[:checked]:border-brand-red has-[:checked]:bg-red-50/40 has-[:checked]:shadow-[0_12px_30px_rgba(220,38,38,0.18)]"
+            className="relative cursor-pointer rounded-2xl border border-black/10 bg-white/90 p-3 transition-all has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50/40 has-[:checked]:shadow-[0_12px_30px_rgba(5,150,105,0.18)]"
           >
             {item.popular ? (
               <span className="absolute -top-2 right-2 rounded-full bg-brand-black px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white">

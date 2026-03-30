@@ -15,9 +15,11 @@ import { AuthShell } from '@/components/auth/auth-shell';
 const showOtp = process.env.NEXT_PUBLIC_ENABLE_EMAIL_OTP === 'true';
 
 export default function LoginClient({
-  created = false
+  created = false,
+  verify = false
 }: {
   created?: boolean;
+  verify?: boolean;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -112,14 +114,15 @@ export default function LoginClient({
   return (
     <AuthShell>
       <Card className="relative w-full space-y-4 overflow-hidden rounded-3xl border border-black/10 bg-gradient-to-b from-white to-zinc-50/90 p-6 shadow-[0_34px_90px_rgba(15,23,42,0.2)] sm:p-10">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-brand-red" aria-hidden />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-emerald-600" aria-hidden />
         <h1 className="text-3xl font-bold text-gray-900 sm:text-[2rem]">Welcome back</h1>
         <p className="text-sm text-gray-700">
-          Sign in to manage quotes, invoices and service updates.
+          Sign in to manage your farm tasks, workforce, incidents, and records.
         </p>
         {created ? (
           <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800">
-            Account created. Please sign in.
+            Account created successfully.
+            {verify ? ' Check your inbox and confirm your email before signing in.' : ' You can sign in now.'}
           </p>
         ) : null}
 
@@ -129,7 +132,7 @@ export default function LoginClient({
           </label>
           <input
             id="login-email"
-            className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-brand-red focus:outline-none focus:ring-2 focus:ring-brand-red/20"
+            className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -142,7 +145,7 @@ export default function LoginClient({
           </label>
           <input
             id="login-password"
-            className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-brand-red focus:outline-none focus:ring-2 focus:ring-brand-red/20"
+            className="w-full rounded-xl border border-black/15 bg-white/95 p-3 text-base transition focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
             type="password"
             placeholder="Password"
             value={password}
@@ -152,7 +155,7 @@ export default function LoginClient({
 
         <Button
           onClick={signIn}
-          className="h-11 w-full bg-gradient-to-b from-red-600 to-red-700 shadow-[0_12px_30px_rgba(220,38,38,0.35)] transition-all hover:from-red-500 hover:to-red-600 active:scale-[0.98]"
+          className="h-11 w-full bg-gradient-to-b from-emerald-600 to-emerald-700 shadow-[0_12px_30px_rgba(5,150,105,0.35)] transition-all hover:from-emerald-500 hover:to-emerald-600 active:scale-[0.98]"
           disabled={isSigningIn}
         >
           {isSigningIn ? 'Signing you in...' : 'Sign in'}
@@ -162,7 +165,7 @@ export default function LoginClient({
           <Link href="#" className="underline-offset-4 hover:underline">
             Forgot password
           </Link>
-          <Link href="/signup" className="font-semibold text-brand-red underline-offset-4 hover:underline">
+          <Link href="/signup" className="font-semibold text-emerald-700 underline-offset-4 hover:underline">
             Create account
           </Link>
         </div>
