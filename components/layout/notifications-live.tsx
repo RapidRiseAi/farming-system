@@ -61,7 +61,7 @@ export function NotificationsLive({ fullPage = false }: { fullPage?: boolean }) 
         supabase.from('customer_accounts').select('id').eq('auth_user_id', user.id).maybeSingle()
       ]);
 
-      const isWorkshop = profile?.role === 'admin' || profile?.role === 'technician';
+      const isWorkshop = profile?.role !== 'customer';
       setIsWorkshopUser(isWorkshop);
 
       const load = async () => {
