@@ -23,7 +23,7 @@ BEGIN
       AND t.typname = 'customer_tier'
       AND t.typtype = 'e'
   ) THEN
-    EXECUTE $$create type public.customer_tier as enum ('basic','pro','business')$$;
+    EXECUTE 'create type public.customer_tier as enum (''basic'',''pro'',''business'')';
   ELSE
     IF NOT EXISTS (
       SELECT 1
@@ -34,7 +34,7 @@ BEGIN
         AND t.typname = 'customer_tier'
         AND e.enumlabel = 'basic'
     ) THEN
-      EXECUTE $$alter type public.customer_tier add value 'basic'$$;
+      EXECUTE 'alter type public.customer_tier add value ''basic''';
     END IF;
 
     IF NOT EXISTS (
@@ -46,7 +46,7 @@ BEGIN
         AND t.typname = 'customer_tier'
         AND e.enumlabel = 'pro'
     ) THEN
-      EXECUTE $$alter type public.customer_tier add value 'pro'$$;
+      EXECUTE 'alter type public.customer_tier add value ''pro''';
     END IF;
 
     IF NOT EXISTS (
@@ -58,7 +58,7 @@ BEGIN
         AND t.typname = 'customer_tier'
         AND e.enumlabel = 'business'
     ) THEN
-      EXECUTE $$alter type public.customer_tier add value 'business'$$;
+      EXECUTE 'alter type public.customer_tier add value ''business''';
     END IF;
   END IF;
 
