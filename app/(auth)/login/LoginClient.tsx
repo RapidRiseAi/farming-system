@@ -16,12 +16,10 @@ const showOtp = process.env.NEXT_PUBLIC_ENABLE_EMAIL_OTP === 'true';
 
 export default function LoginClient({
   created = false,
-  verify = false,
-  existing = false
+  verify = false
 }: {
   created?: boolean;
   verify?: boolean;
-  existing?: boolean;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -125,11 +123,6 @@ export default function LoginClient({
           <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800">
             Account created successfully.
             {verify ? ' Check your inbox and confirm your email before signing in.' : ' You can sign in now.'}
-          </p>
-        ) : null}
-        {existing ? (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 p-2 text-sm text-amber-800">
-            An account with this email already exists. Please sign in instead.
           </p>
         ) : null}
 
