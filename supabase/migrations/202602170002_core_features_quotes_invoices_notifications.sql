@@ -14,7 +14,6 @@ DECLARE
   tier_data_type text;
   tier_udt_schema text;
   tier_udt_name text;
-  tier_requires_rebuild boolean;
 BEGIN
   IF NOT EXISTS (
     SELECT 1
@@ -26,51 +25,41 @@ BEGIN
   ) THEN
     EXECUTE 'create type public.customer_tier as enum (''basic'',''pro'',''business'')';
   ELSE
-    SELECT EXISTS (
+    IF NOT EXISTS (
       SELECT 1
-      FROM unnest(array['basic','pro','business']) AS required(label)
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM pg_enum e
-        JOIN pg_type t ON t.oid = e.enumtypid
-        JOIN pg_namespace n ON n.oid = t.typnamespace
-        WHERE n.nspname = 'public'
-          AND t.typname = 'customer_tier'
-          AND e.enumlabel = required.label
-      )
-    ) INTO tier_requires_rebuild;
-
-    IF tier_requires_rebuild THEN
-      EXECUTE 'alter type public.customer_tier rename to customer_tier_old';
-      EXECUTE 'create type public.customer_tier as enum (''basic'',''pro'',''business'')';
+      FROM pg_enum e
+      JOIN pg_type t ON t.oid = e.enumtypid
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname = 'public'
+        AND t.typname = 'customer_tier'
+        AND e.enumlabel = 'basic'
+    ) THEN
+      EXECUTE 'alter type public.customer_tier add value ''basic''';
     END IF;
-  END IF;
 
-  IF EXISTS (
-    SELECT 1
-    FROM information_schema.columns c
-    WHERE c.table_schema = 'public'
-      AND c.table_name = 'customer_accounts'
-      AND c.column_name = 'tier'
-      AND c.data_type = 'USER-DEFINED'
-      AND c.udt_schema = 'public'
-      AND c.udt_name = 'customer_tier_old'
-  ) THEN
-    ALTER TABLE public.customer_accounts
-      ALTER COLUMN tier TYPE public.customer_tier
-      USING (
-        CASE lower(coalesce(tier::text, ''))
-          WHEN 'pro' THEN 'pro'
-          WHEN 'business' THEN 'business'
-          WHEN 'basic' THEN 'basic'
-          WHEN 'free' THEN 'basic'
-          WHEN 'trial' THEN 'basic'
-          WHEN '' THEN 'basic'
-          ELSE 'basic'
-        END
-      )::public.customer_tier;
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_enum e
+      JOIN pg_type t ON t.oid = e.enumtypid
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname = 'public'
+        AND t.typname = 'customer_tier'
+        AND e.enumlabel = 'pro'
+    ) THEN
+      EXECUTE 'alter type public.customer_tier add value ''pro''';
+    END IF;
 
-    EXECUTE 'drop type if exists public.customer_tier_old';
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_enum e
+      JOIN pg_type t ON t.oid = e.enumtypid
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname = 'public'
+        AND t.typname = 'customer_tier'
+        AND e.enumlabel = 'business'
+    ) THEN
+      EXECUTE 'alter type public.customer_tier add value ''business''';
+    END IF;
   END IF;
 
   SELECT c.data_type, c.udt_schema, c.udt_name
