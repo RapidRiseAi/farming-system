@@ -88,11 +88,24 @@ export async function signupCustomerAction(formData: FormData) {
   });
 
   if (error) {
+    if (error.message.toLowerCase().includes('database error saving new user')) {
+      redirect(
+        '/signup?error=Unable%20to%20create%20account%20because%20the%20database%20signup%20bootstrap%20is%20misconfigured.%20Apply%20the%20latest%20Supabase%20migrations%20and%20try%20again.'
+      );
+    }
+
     redirect(`/signup?error=${encodeURIComponent(error.message)}`);
   }
 
   if (!data.user) {
     redirect('/signup?error=Signup%20failed.%20Please%20try%20again.');
+  }
+
+  const identities = data.user.identities ?? [];
+  const looksLikeDuplicateSignup = identities.length === 0;
+
+  if (looksLikeDuplicateSignup) {
+    redirect('/login?existing=1');
   }
 
   try {
@@ -146,6 +159,15 @@ export async function signupCustomerAction(formData: FormData) {
     ) {
       redirect(
         '/signup?error=Database%20is%20missing%20required%20tables%20(profiles/workshop_accounts).%20Apply%20all%20Supabase%20migrations%20to%20the%20same%20project%20used%20by%20your%20URL%20and%20keys.'
+      );
+    }
+
+    if (
+      normalized.includes('profiles_id_fkey') ||
+      (normalized.includes('foreign key') && normalized.includes('profiles'))
+    ) {
+      redirect(
+        '/login?existing=1'
       );
     }
 
