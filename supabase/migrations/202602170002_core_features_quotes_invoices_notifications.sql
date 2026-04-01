@@ -23,9 +23,17 @@ BEGIN
       AND t.typname = 'customer_tier'
       AND t.typtype = 'e'
   ) THEN
-    EXECUTE $$create type public.customer_tier as enum ('basic','pro','business')$$;
+    EXECUTE 'create type public.customer_tier as enum (''basic'',''pro'',''business'')';
   ELSE
-    IF NOT EXISTS (
+    IF EXISTS (
+      SELECT 1
+      FROM pg_enum e
+      JOIN pg_type t ON t.oid = e.enumtypid
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname = 'public'
+        AND t.typname = 'customer_tier'
+        AND e.enumlabel = 'free'
+    ) AND NOT EXISTS (
       SELECT 1
       FROM pg_enum e
       JOIN pg_type t ON t.oid = e.enumtypid
@@ -34,10 +42,18 @@ BEGIN
         AND t.typname = 'customer_tier'
         AND e.enumlabel = 'basic'
     ) THEN
-      EXECUTE $$alter type public.customer_tier add value 'basic'$$;
+      EXECUTE 'alter type public.customer_tier rename value ''free'' to ''basic''';
     END IF;
 
-    IF NOT EXISTS (
+    IF EXISTS (
+      SELECT 1
+      FROM pg_enum e
+      JOIN pg_type t ON t.oid = e.enumtypid
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname = 'public'
+        AND t.typname = 'customer_tier'
+        AND e.enumlabel = 'standard'
+    ) AND NOT EXISTS (
       SELECT 1
       FROM pg_enum e
       JOIN pg_type t ON t.oid = e.enumtypid
@@ -46,10 +62,18 @@ BEGIN
         AND t.typname = 'customer_tier'
         AND e.enumlabel = 'pro'
     ) THEN
-      EXECUTE $$alter type public.customer_tier add value 'pro'$$;
+      EXECUTE 'alter type public.customer_tier rename value ''standard'' to ''pro''';
     END IF;
 
-    IF NOT EXISTS (
+    IF EXISTS (
+      SELECT 1
+      FROM pg_enum e
+      JOIN pg_type t ON t.oid = e.enumtypid
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname = 'public'
+        AND t.typname = 'customer_tier'
+        AND e.enumlabel = 'premium'
+    ) AND NOT EXISTS (
       SELECT 1
       FROM pg_enum e
       JOIN pg_type t ON t.oid = e.enumtypid
@@ -58,7 +82,7 @@ BEGIN
         AND t.typname = 'customer_tier'
         AND e.enumlabel = 'business'
     ) THEN
-      EXECUTE $$alter type public.customer_tier add value 'business'$$;
+      EXECUTE 'alter type public.customer_tier rename value ''premium'' to ''business''';
     END IF;
   END IF;
 
