@@ -273,7 +273,7 @@ export async function quickUpdateAssetMeter(formData: FormData): Promise<void> {
 
   const { data: asset } = await ctx.supabase
     .from('farm_assets')
-    .select('service_interval_type,service_interval_value,next_service_due_at,current_hours,current_odometer_km,last_service_meter')
+    .select('status,service_interval_type,service_interval_value,next_service_due_at,current_hours,current_odometer_km,last_service_meter')
     .eq('id', assetId)
     .eq('workshop_account_id', ctx.profile.workshop_account_id)
     .maybeSingle();
@@ -290,11 +290,17 @@ export async function quickUpdateAssetMeter(formData: FormData): Promise<void> {
     lastServiceMeter: Number(asset.last_service_meter ?? 0)
   });
 
+  const nextStatus = asset.status === 'down' || asset.status === 'retired'
+    ? asset.status
+    : isDue
+      ? 'maintenance_due'
+      : 'operational';
+
   await ctx.supabase
     .from('farm_assets')
     .update({
       ...patch,
-      status: isDue ? 'maintenance_due' : undefined
+      status: nextStatus
     })
     .eq('id', assetId)
     .eq('workshop_account_id', ctx.profile.workshop_account_id);
@@ -319,7 +325,7 @@ export async function logFarmAssetServiceEvent(formData: FormData): Promise<void
 
   const { data: asset } = await ctx.supabase
     .from('farm_assets')
-    .select('service_interval_type,service_interval_value')
+    .select('status,service_interval_type,service_interval_value')
     .eq('id', assetId)
     .eq('workshop_account_id', ctx.profile.workshop_account_id)
     .maybeSingle();
@@ -340,14 +346,14 @@ export async function logFarmAssetServiceEvent(formData: FormData): Promise<void
     created_by: ctx.profile.id
   });
 
+  const nextStatus = asset.status === 'down' || asset.status === 'retired' ? asset.status : 'operational';
+
   await ctx.supabase
     .from('farm_assets')
     .update({
       last_service_meter: meterReading ?? 0,
       next_service_due_at: nextDueAt,
-      status: 'operational',
-      downtime_started_at: null,
-      downtime_ended_at: null
+      status: nextStatus
     })
     .eq('id', assetId)
     .eq('workshop_account_id', ctx.profile.workshop_account_id);
