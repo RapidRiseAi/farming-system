@@ -4,11 +4,14 @@ import { SignOutButton } from '@/components/layout/sign-out-button';
 
 const links = [
   { href: '/farm/dashboard', label: 'Dashboard' },
+  { href: '/farm/onboarding', label: 'Onboarding' },
   { href: '/farm/tasks', label: 'Tasks' },
   { href: '/farm/assets', label: 'Assets' },
+  { href: '/farm/workforce', label: 'Workforce' },
+  { href: '/farm/crops', label: 'Crops' },
+  { href: '/farm/livestock', label: 'Livestock' },
   { href: '/farm/incidents', label: 'Incidents' },
-  { href: '/farm/expenses', label: 'Expense log' },
-  { href: '/farm/workforce', label: 'Workforce' }
+  { href: '/farm/expenses', label: 'Expenses' }
 ];
 
 export default function FarmLayout({ children }: { children: ReactNode }) {

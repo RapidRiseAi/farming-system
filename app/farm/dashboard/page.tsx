@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui/card';
@@ -27,65 +28,58 @@ export default async function FarmDashboardPage() {
     { count: activeAssets },
     { data: latestExpenses },
     { count: openMaintTasks },
-    { count: overdueTasks }
+    { count: overdueTasks },
+    { count: workerCount },
+    { data: onboarding }
   ] = await Promise.all([
     supabase.from('farm_tasks').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).in('status', ['open', 'in_progress', 'blocked']),
     supabase.from('farm_incidents').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).in('status', ['open', 'investigating']),
     supabase.from('farm_assets').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).neq('status', 'retired'),
     supabase.from('expense_logs').select('id,amount_cents').eq('workshop_account_id', farmId).order('purchased_at', { ascending: false }).limit(30),
     supabase.from('farm_tasks').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).eq('task_type', 'maintenance').in('status', ['open', 'in_progress', 'blocked']),
-    supabase
-      .from('farm_tasks')
-      .select('id', { count: 'exact', head: true })
-      .eq('workshop_account_id', farmId)
-      .in('status', ['open', 'in_progress', 'blocked'])
-      .lt('due_at', new Date().toISOString())
+    supabase.from('farm_tasks').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).in('status', ['open', 'in_progress', 'blocked']).lt('due_at', new Date().toISOString()),
+    supabase.from('workforce_profiles').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).eq('active', true),
+    supabase.from('farm_onboarding_progress').select('completed').eq('workshop_account_id', farmId).maybeSingle()
   ]);
+
+  const hasCoreData = (activeAssets ?? 0) > 0 || (openTasks ?? 0) > 0 || (workerCount ?? 0) > 0 || (openIncidents ?? 0) > 0;
+  if (!onboarding?.completed && !hasCoreData) {
+    redirect('/farm/onboarding');
+  }
 
   const spend30dCents = (latestExpenses ?? []).reduce((sum, row) => sum + (row.amount_cents ?? 0), 0);
 
   return (
     <section className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold text-emerald-950">Farm dashboard</h1>
-        <p className="text-sm text-gray-600">Central command center for tasks, incidents, assets, workforce, and financial logging.</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-emerald-950">Farm dashboard</h1>
+          <p className="text-sm text-gray-600">Central command center for tasks, incidents, assets, workforce, crops, livestock, and financial logging.</p>
+        </div>
+        <Link className="rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900" href="/farm/onboarding">
+          Re-open onboarding checklist
+        </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="rounded-2xl border border-emerald-200 bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-emerald-700">Open tasks</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-950">{openTasks ?? 0}</p>
-          <p className="text-xs text-gray-500">Includes blocked + in-progress work.</p>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ['Open tasks', openTasks ?? 0, 'text-emerald-700'],
+          ['Open incidents', openIncidents ?? 0, 'text-amber-700'],
+          ['Active assets', activeAssets ?? 0, 'text-sky-700'],
+          ['Active workforce', workerCount ?? 0, 'text-violet-700'],
+          ['Open maintenance', openMaintTasks ?? 0, 'text-indigo-700'],
+          ['Overdue tasks', overdueTasks ?? 0, 'text-rose-700']
+        ].map(([label, value, color]) => (
+          <Card key={String(label)} className="rounded-2xl border bg-white p-4">
+            <p className={`text-xs uppercase tracking-wide ${color}`}>{label}</p>
+            <p className="mt-2 text-3xl font-bold text-emerald-950">{value}</p>
+          </Card>
+        ))}
 
-        <Card className="rounded-2xl border border-amber-200 bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-amber-700">Open incidents</p>
-          <p className="mt-2 text-3xl font-bold text-amber-950">{openIncidents ?? 0}</p>
-          <p className="text-xs text-gray-500">Safety, equipment, and biosecurity reports.</p>
-        </Card>
-
-        <Card className="rounded-2xl border border-sky-200 bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-sky-700">Active assets</p>
-          <p className="mt-2 text-3xl font-bold text-sky-950">{activeAssets ?? 0}</p>
-          <p className="text-xs text-gray-500">Fleet, machinery, buildings, and irrigation.</p>
-        </Card>
-
-        <Card className="rounded-2xl border border-emerald-200 bg-white p-4">
+        <Card className="rounded-2xl border border-emerald-200 bg-white p-4 sm:col-span-2 lg:col-span-2">
           <p className="text-xs uppercase tracking-wide text-emerald-700">30-day logged spend</p>
           <p className="mt-2 text-2xl font-bold text-emerald-950">{currency.format(spend30dCents / 100)}</p>
-          <p className="text-xs text-gray-500">Operational feed for external accounting.</p>
-        </Card>
-
-        <Card className="rounded-2xl border border-violet-200 bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-violet-700">Open maintenance tasks</p>
-          <p className="mt-2 text-3xl font-bold text-violet-950">{openMaintTasks ?? 0}</p>
-          <p className="text-xs text-gray-500">Preventive + corrective work queue.</p>
-        </Card>
-
-        <Card className="rounded-2xl border border-rose-200 bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-rose-700">Overdue tasks</p>
-          <p className="mt-2 text-3xl font-bold text-rose-950">{overdueTasks ?? 0}</p>
-          <p className="text-xs text-gray-500">Tasks past due date still not complete.</p>
+          <p className="text-xs text-gray-500">Operational feed for accounting and procurement reporting.</p>
         </Card>
       </div>
     </section>
