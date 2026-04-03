@@ -80,6 +80,42 @@ function computeNextServiceDueAt(baseDateIso: string, intervalType: string, inte
   return baseDate.toISOString();
 }
 
+function deriveServiceDue(args: {
+  intervalType: string;
+  intervalValue: number;
+  nextServiceDueAt: string | null;
+  currentHours: number | null;
+  currentOdometerKm: number | null;
+  lastServiceMeter: number | null;
+}) {
+  const { intervalType, intervalValue, nextServiceDueAt, currentHours, currentOdometerKm, lastServiceMeter } = args;
+  if (intervalType === 'days') {
+    if (!nextServiceDueAt) return false;
+    return new Date(nextServiceDueAt).getTime() <= Date.now();
+  }
+
+  const baseMeter = Number(lastServiceMeter ?? 0);
+  const threshold = Math.max(Number(intervalValue || 0), 1);
+  if (intervalType === 'hours') {
+    return (Number(currentHours ?? 0) - baseMeter) >= threshold;
+  }
+  if (intervalType === 'odometer_km') {
+    return (Number(currentOdometerKm ?? 0) - baseMeter) >= threshold;
+  }
+  return false;
+}
+
+async function validateAssignedProfile(ctx: NonNullable<Awaited<ReturnType<typeof getFarmContext>>>, assignedProfileId: string | null) {
+  if (!assignedProfileId) return null;
+  const { data: profile } = await ctx.supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', assignedProfileId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  return profile?.id ?? null;
+}
+
 async function addHistory(ctx: NonNullable<Awaited<ReturnType<typeof getFarmContext>>>, entityType: string, entityId: string, action: string, payload: Record<string, unknown>) {
   await ctx.supabase.from('farm_entity_history').insert({
     workshop_account_id: ctx.profile.workshop_account_id,
@@ -153,6 +189,11 @@ export async function createFarmAsset(formData: FormData): Promise<void> {
   const assetType = String(formData.get('assetType') ?? 'equipment').trim();
   if (!name) return;
 
+  const assignedProfileId = await validateAssignedProfile(ctx, toNullable(formData.get('assignedProfileId')));
+  const serviceIntervalType = String(formData.get('serviceIntervalType') ?? 'days');
+  const serviceIntervalValue = Math.max(1, Number(String(formData.get('serviceIntervalValue') ?? '').trim() || '30'));
+  const nextDueAt = toNullable(formData.get('nextServiceDueAt')) ?? computeNextServiceDueAt(new Date().toISOString(), serviceIntervalType, serviceIntervalValue);
+
   const { data } = await ctx.supabase.from('farm_assets').insert({
     workshop_account_id: ctx.profile.workshop_account_id,
     name,
@@ -164,11 +205,11 @@ export async function createFarmAsset(formData: FormData): Promise<void> {
     model: String(formData.get('model') ?? '').trim() || 'Unknown',
     serial_number: String(formData.get('serialNumber') ?? '').trim() || 'Unknown',
     registration: String(formData.get('registration') ?? '').trim() || 'N/A',
-    assigned_profile_id: toNullable(formData.get('assignedProfileId')),
-    service_interval_type: String(formData.get('serviceIntervalType') ?? 'days'),
-    service_interval_value: Number(String(formData.get('serviceIntervalValue') ?? '').trim() || '30'),
+    assigned_profile_id: assignedProfileId,
+    service_interval_type: serviceIntervalType,
+    service_interval_value: serviceIntervalValue,
     last_service_meter: Number(String(formData.get('lastServiceMeter') ?? '').trim() || '0'),
-    next_service_due_at: toNullable(formData.get('nextServiceDueAt')) ?? computeNextServiceDueAt(new Date().toISOString(), String(formData.get('serviceIntervalType') ?? 'days'), Number(String(formData.get('serviceIntervalValue') ?? '').trim() || '30')),
+    next_service_due_at: nextDueAt,
     criticality: String(formData.get('criticality') ?? 'medium'),
     site_name: toNullable(formData.get('siteName')),
     current_hours: Number(String(formData.get('currentHours') ?? '').trim() || '0') || null,
@@ -190,6 +231,7 @@ export async function updateFarmAsset(formData: FormData): Promise<void> {
   const assetId = String(formData.get('assetId') ?? '').trim();
   if (!assetId) return;
   const status = String(formData.get('status') ?? 'operational');
+  const assignedProfileId = await validateAssignedProfile(ctx, toNullable(formData.get('assignedProfileId')));
   await ctx.supabase.from('farm_assets').update({
     name: String(formData.get('name') ?? '').trim() || undefined,
     asset_code: String(formData.get('assetCode') ?? '').trim() || undefined,
@@ -198,7 +240,7 @@ export async function updateFarmAsset(formData: FormData): Promise<void> {
     model: String(formData.get('model') ?? '').trim() || undefined,
     serial_number: String(formData.get('serialNumber') ?? '').trim() || undefined,
     registration: String(formData.get('registration') ?? '').trim() || undefined,
-    assigned_profile_id: toNullable(formData.get('assignedProfileId')),
+    assigned_profile_id: assignedProfileId,
     service_interval_type: String(formData.get('serviceIntervalType') ?? '').trim() || undefined,
     service_interval_value: toNumberOrNull(formData.get('serviceIntervalValue')) ?? undefined,
     last_service_meter: toNumberOrNull(formData.get('lastServiceMeter')) ?? undefined,
@@ -229,9 +271,31 @@ export async function quickUpdateAssetMeter(formData: FormData): Promise<void> {
     ? { current_odometer_km: Math.max(0, Math.round(reading)) }
     : { current_hours: Math.max(0, reading) };
 
+  const { data: asset } = await ctx.supabase
+    .from('farm_assets')
+    .select('service_interval_type,service_interval_value,next_service_due_at,current_hours,current_odometer_km,last_service_meter')
+    .eq('id', assetId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+
+  if (!asset) return;
+  const projectedHours = meterType === 'hours' ? Math.max(0, reading) : Number(asset.current_hours ?? 0);
+  const projectedOdometer = meterType === 'odometer' ? Math.max(0, Math.round(reading)) : Number(asset.current_odometer_km ?? 0);
+  const isDue = deriveServiceDue({
+    intervalType: asset.service_interval_type,
+    intervalValue: Number(asset.service_interval_value ?? 0),
+    nextServiceDueAt: asset.next_service_due_at,
+    currentHours: projectedHours,
+    currentOdometerKm: projectedOdometer,
+    lastServiceMeter: Number(asset.last_service_meter ?? 0)
+  });
+
   await ctx.supabase
     .from('farm_assets')
-    .update(patch)
+    .update({
+      ...patch,
+      status: isDue ? 'maintenance_due' : undefined
+    })
     .eq('id', assetId)
     .eq('workshop_account_id', ctx.profile.workshop_account_id);
 
@@ -251,6 +315,7 @@ export async function logFarmAssetServiceEvent(formData: FormData): Promise<void
   const meterReading = toNumberOrNull(formData.get('meterReading'));
   const manualDueAt = toNullable(formData.get('manualNextDueAt'));
   const manualReason = toNullable(formData.get('manualOverrideReason'));
+  if (manualDueAt && !manualReason) return;
 
   const { data: asset } = await ctx.supabase
     .from('farm_assets')
@@ -279,7 +344,10 @@ export async function logFarmAssetServiceEvent(formData: FormData): Promise<void
     .from('farm_assets')
     .update({
       last_service_meter: meterReading ?? 0,
-      next_service_due_at: nextDueAt
+      next_service_due_at: nextDueAt,
+      status: 'operational',
+      downtime_started_at: null,
+      downtime_ended_at: null
     })
     .eq('id', assetId)
     .eq('workshop_account_id', ctx.profile.workshop_account_id);

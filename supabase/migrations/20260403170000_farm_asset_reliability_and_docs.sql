@@ -87,6 +87,19 @@ CREATE TABLE IF NOT EXISTS public.farm_asset_service_events (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'farm_asset_service_events_override_reason_check'
+      AND conrelid = 'public.farm_asset_service_events'::regclass
+  ) THEN
+    ALTER TABLE public.farm_asset_service_events
+      ADD CONSTRAINT farm_asset_service_events_override_reason_check
+      CHECK (event_type <> 'override' OR override_reason IS NOT NULL);
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS public.farm_asset_faults (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workshop_account_id uuid NOT NULL REFERENCES public.workshop_accounts(id) ON DELETE CASCADE,
@@ -103,6 +116,19 @@ CREATE TABLE IF NOT EXISTS public.farm_asset_faults (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'farm_asset_faults_closed_after_started_check'
+      AND conrelid = 'public.farm_asset_faults'::regclass
+  ) THEN
+    ALTER TABLE public.farm_asset_faults
+      ADD CONSTRAINT farm_asset_faults_closed_after_started_check
+      CHECK (closed_at IS NULL OR closed_at >= started_at);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.farm_asset_documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
