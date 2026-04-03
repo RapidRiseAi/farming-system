@@ -57,6 +57,29 @@ function toNullable(value: FormDataEntryValue | null): string | null {
   return input ? input : null;
 }
 
+function toPointLiteral(latitude: FormDataEntryValue | null, longitude: FormDataEntryValue | null): string | null {
+  const latValue = String(latitude ?? '').trim();
+  const lngValue = String(longitude ?? '').trim();
+  if (!latValue || !lngValue) return null;
+
+  const lat = Number(latValue);
+  const lng = Number(lngValue);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return `(${lng},${lat})`;
+}
+
+function toNullableJsonObject(value: FormDataEntryValue | null): Record<string, unknown> | null {
+  const input = String(value ?? '').trim();
+  if (!input) return null;
+  try {
+    const parsed = JSON.parse(input);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 async function addHistory(ctx: NonNullable<Awaited<ReturnType<typeof getFarmContext>>>, entityType: string, entityId: string, action: string, payload: Record<string, unknown>) {
   await ctx.supabase.from('farm_entity_history').insert({
     workshop_account_id: ctx.profile.workshop_account_id,
@@ -136,6 +159,8 @@ export async function createFarmAsset(formData: FormData): Promise<void> {
     asset_type: assetType,
     status: String(formData.get('status') ?? 'operational'),
     site_name: toNullable(formData.get('siteName')),
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
     current_hours: Number(String(formData.get('currentHours') ?? '').trim() || '0') || null,
     current_odometer_km: Number(String(formData.get('currentOdometerKm') ?? '').trim() || '0') || null,
     notes: toNullable(formData.get('notes')),
@@ -159,6 +184,8 @@ export async function updateFarmAsset(formData: FormData): Promise<void> {
     name: String(formData.get('name') ?? '').trim() || undefined,
     status,
     site_name: toNullable(formData.get('siteName')),
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
     notes: toNullable(formData.get('notes')),
     current_hours: Number(String(formData.get('currentHours') ?? '').trim() || '0') || null,
     current_odometer_km: Number(String(formData.get('currentOdometerKm') ?? '').trim() || '0') || null,
@@ -167,6 +194,137 @@ export async function updateFarmAsset(formData: FormData): Promise<void> {
 
   await addHistory(ctx, 'farm_asset', assetId, status === 'retired' ? 'archived' : 'updated', { status });
   revalidatePath('/farm/assets');
+}
+
+export async function createFarmSite(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx || !isManager(ctx.profile.role)) return;
+  const name = String(formData.get('name') ?? '').trim();
+  if (!name) return;
+
+  const { data } = await ctx.supabase.from('farm_sites').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    name,
+    code: toNullable(formData.get('code')),
+    province: toNullable(formData.get('province')),
+    centroid: toPointLiteral(formData.get('centroidLat'), formData.get('centroidLng')),
+    boundary_geojson: toNullableJsonObject(formData.get('boundaryGeoJson')),
+    emergency_contacts: toNullable(formData.get('emergencyContacts')),
+    status: String(formData.get('status') ?? 'active')
+  }).select('id').single();
+
+  if (!data?.id) return;
+  await addHistory(ctx, 'farm_site', data.id, 'created', { name });
+  revalidatePath('/farm/structure');
+}
+
+export async function createFarmArea(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx || !isManager(ctx.profile.role)) return;
+  const name = String(formData.get('name') ?? '').trim();
+  if (!name) return;
+
+  const { data } = await ctx.supabase.from('farm_areas').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    site_id: toNullable(formData.get('siteId')),
+    parent_area_id: toNullable(formData.get('parentAreaId')),
+    code: toNullable(formData.get('code')),
+    name,
+    area_type: String(formData.get('areaType') ?? 'field'),
+    centroid: toPointLiteral(formData.get('centroidLat'), formData.get('centroidLng')),
+    boundary_geojson: toNullableJsonObject(formData.get('boundaryGeoJson')),
+    notes: toNullable(formData.get('notes')),
+    active: String(formData.get('active') ?? 'true') === 'true'
+  }).select('id').single();
+
+  if (!data?.id) return;
+  await addHistory(ctx, 'farm_area', data.id, 'created', { name });
+  revalidatePath('/farm/structure');
+}
+
+export async function createFarmProductionUnit(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx || !isManager(ctx.profile.role)) return;
+  const name = String(formData.get('name') ?? '').trim();
+  if (!name) return;
+
+  const { data } = await ctx.supabase.from('farm_production_units').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
+    internal_code: toNullable(formData.get('internalCode')),
+    external_code: toNullable(formData.get('externalCode')),
+    name,
+    status: String(formData.get('status') ?? 'active'),
+    notes: toNullable(formData.get('notes'))
+  }).select('id').single();
+
+  if (!data?.id) return;
+  await addHistory(ctx, 'farm_production_unit', data.id, 'created', { name });
+  revalidatePath('/farm/structure');
+}
+
+export async function updateFarmArea(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx || !isManager(ctx.profile.role)) return;
+  const areaId = String(formData.get('areaId') ?? '').trim();
+  if (!areaId) return;
+  const active = String(formData.get('active') ?? 'true') === 'true';
+
+  await ctx.supabase.from('farm_areas').update({
+    site_id: toNullable(formData.get('siteId')),
+    parent_area_id: toNullable(formData.get('parentAreaId')),
+    code: toNullable(formData.get('code')),
+    name: String(formData.get('name') ?? '').trim() || undefined,
+    area_type: String(formData.get('areaType') ?? 'field'),
+    centroid: toPointLiteral(formData.get('centroidLat'), formData.get('centroidLng')),
+    boundary_geojson: toNullableJsonObject(formData.get('boundaryGeoJson')),
+    notes: toNullable(formData.get('notes')),
+    active
+  }).eq('id', areaId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await addHistory(ctx, 'farm_area', areaId, active ? 'activated' : 'deactivated', { active });
+  revalidatePath('/farm/structure');
+}
+
+export async function updateFarmSite(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx || !isManager(ctx.profile.role)) return;
+  const siteId = String(formData.get('siteId') ?? '').trim();
+  if (!siteId) return;
+
+  await ctx.supabase.from('farm_sites').update({
+    name: String(formData.get('name') ?? '').trim() || undefined,
+    code: toNullable(formData.get('code')),
+    province: toNullable(formData.get('province')),
+    centroid: toPointLiteral(formData.get('centroidLat'), formData.get('centroidLng')),
+    boundary_geojson: toNullableJsonObject(formData.get('boundaryGeoJson')),
+    emergency_contacts: toNullable(formData.get('emergencyContacts')),
+    status: String(formData.get('status') ?? 'active')
+  }).eq('id', siteId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await addHistory(ctx, 'farm_site', siteId, 'updated', { status: String(formData.get('status') ?? 'active') });
+  revalidatePath('/farm/structure');
+}
+
+export async function updateFarmProductionUnit(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx || !isManager(ctx.profile.role)) return;
+  const unitId = String(formData.get('unitId') ?? '').trim();
+  if (!unitId) return;
+
+  await ctx.supabase.from('farm_production_units').update({
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
+    internal_code: toNullable(formData.get('internalCode')),
+    external_code: toNullable(formData.get('externalCode')),
+    name: String(formData.get('name') ?? '').trim() || undefined,
+    status: String(formData.get('status') ?? 'active'),
+    notes: toNullable(formData.get('notes'))
+  }).eq('id', unitId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await addHistory(ctx, 'farm_production_unit', unitId, 'updated', { status: String(formData.get('status') ?? 'active') });
+  revalidatePath('/farm/structure');
 }
 
 export async function createWorker(formData: FormData): Promise<void> {
@@ -182,6 +340,8 @@ export async function createWorker(formData: FormData): Promise<void> {
     worker_type: String(formData.get('workerType') ?? 'employee'),
     mobile_number: toNullable(formData.get('mobileNumber')),
     emergency_contact: toNullable(formData.get('emergencyContact')),
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
     start_date: toNullable(formData.get('startDate')),
     active: true
   }).select('id').single();
@@ -204,6 +364,8 @@ export async function updateWorker(formData: FormData): Promise<void> {
     worker_type: String(formData.get('workerType') ?? 'employee'),
     mobile_number: toNullable(formData.get('mobileNumber')),
     emergency_contact: toNullable(formData.get('emergencyContact')),
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
     active,
     end_date: active ? null : new Date().toISOString().slice(0, 10)
   }).eq('id', workerId).eq('workshop_account_id', ctx.profile.workshop_account_id);
@@ -225,6 +387,8 @@ export async function clockWorker(formData: FormData): Promise<void> {
       workforce_profile_id: workerId,
       clock_in_at: new Date().toISOString(),
       entry_type: 'work',
+      site_id: toNullable(formData.get('siteId')),
+      area_id: toNullable(formData.get('areaId')),
       created_by: ctx.profile.id
     }).select('id').single();
     if (data?.id) await addHistory(ctx, 'workforce_time_entry', data.id, 'clock_in', { workforce_profile_id: workerId });
@@ -277,6 +441,8 @@ export async function createFarmTask(formData: FormData): Promise<void> {
     task_type: String(formData.get('taskType') ?? 'general'),
     priority: String(formData.get('priority') ?? 'normal'),
     due_at: toNullable(formData.get('dueAt')),
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
     created_by: ctx.profile.id
   }).select('id').single();
 
@@ -365,6 +531,8 @@ export async function reportFarmIncident(formData: FormData): Promise<void> {
       description,
       incident_type: String(formData.get('incidentType') ?? 'other'),
       severity: String(formData.get('severity') ?? 'medium'),
+      site_id: toNullable(formData.get('siteId')),
+      area_id: toNullable(formData.get('areaId')),
       occurred_at: occurredAt,
       owner_profile_id: toNullable(formData.get('ownerProfileId')),
       reported_by: ctx.profile.id
@@ -385,6 +553,8 @@ export async function updateIncidentWorkflow(formData: FormData): Promise<void> 
 
   await ctx.supabase.from('farm_incidents').update({
     status: String(formData.get('status') ?? 'open'),
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
     corrective_action: toNullable(formData.get('correctiveAction')),
     owner_profile_id: toNullable(formData.get('ownerProfileId'))
   }).eq('id', incidentId).eq('workshop_account_id', ctx.profile.workshop_account_id);
@@ -406,6 +576,8 @@ export async function logFarmExpense(formData: FormData): Promise<void> {
     .insert({
       workshop_account_id: ctx.profile.workshop_account_id,
       category: String(formData.get('category') ?? 'other'),
+      site_id: toNullable(formData.get('siteId')),
+      area_id: toNullable(formData.get('areaId')),
       vendor_name: toNullable(formData.get('vendorName')),
       amount_cents: amountCents,
       notes: toNullable(formData.get('notes')),
@@ -430,6 +602,8 @@ export async function updateExpenseWorkflow(formData: FormData): Promise<void> {
 
   await ctx.supabase.from('expense_logs').update({
     status: String(formData.get('status') ?? 'submitted'),
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
     vendor_name: toNullable(formData.get('vendorName')),
     notes: toNullable(formData.get('notes')),
     receipt_storage_path: toNullable(formData.get('receiptStoragePath'))
@@ -449,6 +623,8 @@ export async function createCropField(formData: FormData): Promise<void> {
     workshop_account_id: ctx.profile.workshop_account_id,
     name,
     field_code: toNullable(formData.get('fieldCode')),
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
     hectares: Number(String(formData.get('hectares') ?? '').trim() || '0') || null,
     soil_type: toNullable(formData.get('soilType')),
     irrigation_type: toNullable(formData.get('irrigationType')),
@@ -470,6 +646,8 @@ export async function createCropLog(formData: FormData): Promise<void> {
   const { data } = await ctx.supabase.from('crop_logs').insert({
     workshop_account_id: ctx.profile.workshop_account_id,
     field_id: fieldId,
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
     log_type: String(formData.get('logType') ?? 'other'),
     log_date: logDate,
     crop_name: toNullable(formData.get('cropName')),
@@ -493,6 +671,8 @@ export async function createLivestockHerd(formData: FormData): Promise<void> {
     workshop_account_id: ctx.profile.workshop_account_id,
     name,
     species,
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
     herd_code: toNullable(formData.get('herdCode')),
     active_count: Number(String(formData.get('activeCount') ?? '').trim() || '0')
   }).select('id').single();
@@ -512,6 +692,8 @@ export async function createLivestockLog(formData: FormData): Promise<void> {
   const { data } = await ctx.supabase.from('livestock_logs').insert({
     workshop_account_id: ctx.profile.workshop_account_id,
     herd_id: herdId,
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
     log_type: String(formData.get('logType') ?? 'other'),
     log_date: logDate,
     quantity: Number(String(formData.get('quantity') ?? '').trim() || '0') || null,
