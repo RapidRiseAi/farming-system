@@ -11,7 +11,8 @@ const links = [
   { href: '/farm/crops', label: 'Crops' },
   { href: '/farm/livestock', label: 'Livestock' },
   { href: '/farm/incidents', label: 'Incidents' },
-  { href: '/farm/expenses', label: 'Expenses' }
+  { href: '/farm/expenses', label: 'Expenses' },
+  { href: '/farm/structure', label: 'Structure' }
 ];
 
 export default function FarmLayout({ children }: { children: ReactNode }) {
