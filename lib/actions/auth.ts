@@ -57,35 +57,6 @@ async function upsertProfileWithFallbackRole(admin: ReturnType<typeof createAdmi
   return { role: 'admin' as const };
 }
 
-async function ensureSignupBootstrapWorkshop(admin: ReturnType<typeof createAdminClient>) {
-  const bootstrapWorkshopId = '11111111-1111-1111-1111-111111111111';
-
-  const { data: existing, error: existingError } = await admin
-    .from('workshop_accounts')
-    .select('id')
-    .eq('id', bootstrapWorkshopId)
-    .maybeSingle();
-
-  if (existingError) {
-    throw new Error(existingError.message);
-  }
-
-  if (existing?.id) {
-    return;
-  }
-
-  const { error: insertError } = await admin.from('workshop_accounts').insert({
-    id: bootstrapWorkshopId,
-    name: 'Default Workshop',
-    slug: 'default-workshop-bootstrap',
-    plan: 'free'
-  });
-
-  if (insertError && !insertError.message.toLowerCase().includes('duplicate key')) {
-    throw new Error(insertError.message);
-  }
-}
-
 export async function signupCustomerAction(formData: FormData) {
   const email = formData.get('email')?.toString().trim() ?? '';
   const password = formData.get('password')?.toString() ?? '';
@@ -101,31 +72,20 @@ export async function signupCustomerAction(formData: FormData) {
 
   const supabase = await createClient();
   const appUrl = await resolveAppUrl();
-  const admin = createAdminClient();
 
-  const performSignup = () =>
-    supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${appUrl}/login`,
-        data: {
-          display_name: displayName,
-          farm_name: farmName,
-          selected_plan: tier,
-          requested_role: 'owner'
-        }
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${appUrl}/login`,
+      data: {
+        display_name: displayName,
+        farm_name: farmName,
+        selected_plan: tier,
+        requested_role: 'owner'
       }
-    });
-
-  let { data, error } = await performSignup();
-
-  if (error && error.message.toLowerCase().includes('database error saving new user')) {
-    await ensureSignupBootstrapWorkshop(admin);
-    const retry = await performSignup();
-    data = retry.data;
-    error = retry.error;
-  }
+    }
+  });
 
   if (error) {
     redirect(`/signup?error=${encodeURIComponent(error.message)}`);
@@ -135,14 +95,8 @@ export async function signupCustomerAction(formData: FormData) {
     redirect('/signup?error=Signup%20failed.%20Please%20try%20again.');
   }
 
-  const identities = data.user.identities ?? [];
-  const looksLikeDuplicateSignup = identities.length === 0;
-
-  if (looksLikeDuplicateSignup) {
-    redirect('/login?existing=1');
-  }
-
   try {
+    const admin = createAdminClient();
     const resolvedDisplayName = displayName || email.split('@')[0] || 'Farm Owner';
 
     const profileRole = await upsertProfileWithFallbackRole(admin, data.user.id, resolvedDisplayName);
@@ -192,15 +146,6 @@ export async function signupCustomerAction(formData: FormData) {
     ) {
       redirect(
         '/signup?error=Database%20is%20missing%20required%20tables%20(profiles/workshop_accounts).%20Apply%20all%20Supabase%20migrations%20to%20the%20same%20project%20used%20by%20your%20URL%20and%20keys.'
-      );
-    }
-
-    if (
-      normalized.includes('profiles_id_fkey') ||
-      (normalized.includes('foreign key') && normalized.includes('profiles'))
-    ) {
-      redirect(
-        '/login?existing=1'
       );
     }
 
