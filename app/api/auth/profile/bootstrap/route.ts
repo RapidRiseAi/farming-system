@@ -42,8 +42,12 @@ export async function POST() {
     user.email?.split('@')[0] ||
     'User';
 
-  const requestedRoleRaw =
-    typeof user.user_metadata?.requested_role === 'string' ? user.user_metadata.requested_role.toLowerCase() : 'customer';
+  const explicitRequestedRole =
+    typeof user.user_metadata?.requested_role === 'string' ? user.user_metadata.requested_role.toLowerCase() : null;
+  const looksLikeFarmSignup =
+    typeof user.user_metadata?.farm_name === 'string' ||
+    typeof user.user_metadata?.selected_plan === 'string';
+  const requestedRoleRaw = explicitRequestedRole ?? (looksLikeFarmSignup ? 'owner' : 'customer');
   const requestedRole = FARM_ROLES.has(requestedRoleRaw) ? requestedRoleRaw : 'customer';
 
   const { error: profileError } = await admin.from('profiles').upsert(

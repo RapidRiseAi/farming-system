@@ -67,13 +67,13 @@ export default function LoginClient({
       .eq('id', data.user.id)
       .maybeSingle();
 
-    if (profileError) {
+    if (profileError || !profile) {
       const bootstrapResponse = await fetch('/api/auth/profile/bootstrap', {
         method: 'POST'
       });
 
       if (!bootstrapResponse.ok) {
-        setMsg(profileError.message);
+        setMsg(profileError?.message ?? 'Unable to load your profile. Please try again.');
         setIsSigningIn(false);
         endAuthTransition();
         return;
