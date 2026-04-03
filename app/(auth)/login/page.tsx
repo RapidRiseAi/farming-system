@@ -3,9 +3,9 @@ import LoginClient from './LoginClient';
 export default async function LoginPage({
   searchParams
 }: {
-  searchParams: Promise<{ created?: string; verify?: string; existing?: string }>;
+  searchParams: Promise<{ created?: string; verify?: string }>;
 }) {
-  const { created, verify, existing } = await searchParams;
+  const { created, verify } = await searchParams;
 
-  return <LoginClient created={created === '1'} verify={verify === '1'} existing={existing === '1'} />;
+  return <LoginClient created={created === '1'} verify={verify === '1'} />;
 }
