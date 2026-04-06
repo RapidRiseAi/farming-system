@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
 import { SignOutButton } from '@/components/layout/sign-out-button';
 import { FarmLayoutSearch } from '@/components/farm/farm-layout-search';
@@ -34,7 +34,16 @@ export default function FarmLayout({ children }: { children: ReactNode }) {
             <p className="text-lg font-semibold text-emerald-950">Operations Control</p>
           </div>
           <nav className="flex flex-wrap items-center gap-2 text-sm">
-            <FarmLayoutSearch />
+            <Suspense
+              fallback={
+                <div className="flex items-center gap-2" aria-hidden="true">
+                  <div className="h-9 w-52 rounded-full border border-emerald-200 bg-emerald-50" />
+                  <div className="h-9 w-12 rounded-full border border-emerald-200 bg-emerald-50" />
+                </div>
+              }
+            >
+              <FarmLayoutSearch />
+            </Suspense>
             {links.map((link) => (
               <Link key={link.href} href={link.href} className="rounded-full border border-emerald-200 px-3 py-1.5 font-medium text-emerald-900 hover:bg-emerald-100">
                 {link.label}
