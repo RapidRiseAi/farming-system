@@ -49,6 +49,19 @@ const FARM_WORK_REQUEST_STATUSES = ['new', 'triaged', 'waiting_approval', 'appro
 const FARM_WORK_ORDER_STATUSES = ['open', 'triaged', 'approved', 'in_progress', 'waiting_parts', 'resolved', 'closed'] as const;
 const FARM_WORK_REQUEST_STATUS_SET = new Set<string>(FARM_WORK_REQUEST_STATUSES);
 const FARM_WORK_ORDER_STATUS_SET = new Set<string>(FARM_WORK_ORDER_STATUSES);
+const FARM_STOCK_REQUEST_STATUSES = ['new', 'pending_approval', 'approved', 'partially_issued', 'issued', 'cancelled', 'rejected'] as const;
+const FARM_STOCK_REQUEST_STATUS_SET = new Set<string>(FARM_STOCK_REQUEST_STATUSES);
+const STOCK_REQUEST_TRANSITIONS: Record<(typeof FARM_STOCK_REQUEST_STATUSES)[number], Set<(typeof FARM_STOCK_REQUEST_STATUSES)[number]>> = {
+  new: new Set(['pending_approval', 'approved', 'cancelled', 'rejected']),
+  pending_approval: new Set(['approved', 'cancelled', 'rejected']),
+  approved: new Set(['partially_issued', 'issued', 'cancelled']),
+  partially_issued: new Set(['issued', 'cancelled']),
+  issued: new Set(),
+  cancelled: new Set(),
+  rejected: new Set()
+};
+const FARM_DOCUMENT_STATUSES = ['active', 'expired', 'superseded', 'archived'] as const;
+const FARM_DOCUMENT_STATUS_SET = new Set<string>(FARM_DOCUMENT_STATUSES);
 const LIVESTOCK_EVENT_TYPES = [
   'treatment',
   'vaccination',
@@ -1417,4 +1430,219 @@ export async function createLivestockEvent(formData: FormData): Promise<void> {
   });
   revalidatePath('/farm/livestock');
   revalidatePath('/farm/tasks');
+}
+
+async function createUnresolvedStockRequestReminder(ctx: NonNullable<Awaited<ReturnType<typeof getFarmContext>>>, stockRequestId: string, requestNumber: string, needByAt: string | null) {
+  const dueAt = needByAt ? new Date(needByAt).toISOString() : new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+  await ctx.supabase.from('farm_tasks').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    title: `Unresolved stock request ${requestNumber}`,
+    description: `Review and resolve farm stock request ${requestNumber}.`,
+    task_type: 'general',
+    priority: 'high',
+    status: 'open',
+    due_at: dueAt,
+    created_by: ctx.profile.id
+  });
+  await addHistory(ctx, 'farm_stock_request', stockRequestId, 'reminder_created', { due_at: dueAt, reason: 'unresolved_stock_request' });
+}
+
+async function createExpiringDocumentReminder(ctx: NonNullable<Awaited<ReturnType<typeof getFarmContext>>>, documentId: string, documentNumber: string, expiryDate: string) {
+  const dueAt = `${expiryDate}T09:00:00.000Z`;
+  await ctx.supabase.from('farm_tasks').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    title: `Document expiry review ${documentNumber}`,
+    description: `Document ${documentNumber} is expiring. Renew, supersede, or archive it.`,
+    task_type: 'inspection',
+    priority: 'high',
+    status: 'open',
+    due_at: dueAt,
+    created_by: ctx.profile.id
+  });
+  await addHistory(ctx, 'farm_document', documentId, 'reminder_created', { due_at: dueAt, reason: 'expiring_document' });
+}
+
+export async function createFarmStockRequest(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+
+  const requestType = String(formData.get('requestType') ?? 'general').trim();
+  const requestedForType = String(formData.get('requestedForType') ?? 'site').trim();
+  const itemName = String(formData.get('itemName') ?? '').trim();
+  const qty = Number(String(formData.get('qty') ?? '').trim() || '0');
+  const unit = String(formData.get('unit') ?? '').trim();
+  if (!itemName || qty <= 0 || !unit) return;
+
+  const needByAt = toNullable(formData.get('needByAt'));
+  const requestNumber = `FSR-${Date.now()}`;
+  const { data: request } = await ctx.supabase.from('farm_stock_requests').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    request_number: requestNumber,
+    request_type: requestType,
+    requester_profile_id: toNullable(formData.get('requesterProfileId')) ?? ctx.profile.id,
+    requested_for_type: requestedForType,
+    requested_for_id: toNullable(formData.get('requestedForId')),
+    requested_for_label: toNullable(formData.get('requestedForLabel')),
+    need_by_at: needByAt,
+    status: String(formData.get('sendForApproval') ?? 'false') === 'true' ? 'pending_approval' : 'new'
+  }).select('id').single();
+  if (!request?.id) return;
+
+  await ctx.supabase.from('farm_stock_request_items').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    stock_request_id: request.id,
+    item_name: itemName,
+    requested_qty: qty,
+    unit,
+    notes: toNullable(formData.get('itemNotes'))
+  });
+
+  await addHistory(ctx, 'farm_stock_request', request.id, 'created', { request_number: requestNumber, request_type: requestType, need_by_at: needByAt });
+  await createUnresolvedStockRequestReminder(ctx, request.id, requestNumber, needByAt);
+  revalidatePath('/farm/stores');
+  revalidatePath('/farm/dashboard');
+  revalidatePath('/farm/tasks');
+}
+
+export async function addFarmStockRequestItem(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const stockRequestId = String(formData.get('stockRequestId') ?? '').trim();
+  const itemName = String(formData.get('itemName') ?? '').trim();
+  const qty = Number(String(formData.get('qty') ?? '').trim() || '0');
+  const unit = String(formData.get('unit') ?? '').trim();
+  if (!stockRequestId || !itemName || qty <= 0 || !unit) return;
+
+  await ctx.supabase.from('farm_stock_request_items').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    stock_request_id: stockRequestId,
+    item_name: itemName,
+    requested_qty: qty,
+    unit,
+    notes: toNullable(formData.get('itemNotes'))
+  });
+
+  await addHistory(ctx, 'farm_stock_request', stockRequestId, 'item_added', { item_name: itemName, requested_qty: qty, unit });
+  revalidatePath('/farm/stores');
+}
+
+export async function transitionFarmStockRequest(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const stockRequestId = String(formData.get('stockRequestId') ?? '').trim();
+  const nextStatus = String(formData.get('nextStatus') ?? '').trim() as (typeof FARM_STOCK_REQUEST_STATUSES)[number];
+  if (!stockRequestId || !FARM_STOCK_REQUEST_STATUS_SET.has(nextStatus)) return;
+
+  const { data: existing } = await ctx.supabase
+    .from('farm_stock_requests')
+    .select('status,request_number')
+    .eq('id', stockRequestId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  if (!existing?.status || !existing.request_number) return;
+
+  const currentStatus = existing.status as (typeof FARM_STOCK_REQUEST_STATUSES)[number];
+  if (currentStatus !== nextStatus && !STOCK_REQUEST_TRANSITIONS[currentStatus]?.has(nextStatus)) return;
+  if ((nextStatus === 'approved' || nextStatus === 'rejected') && !isManager(ctx.profile.role)) return;
+
+  await ctx.supabase.from('farm_stock_requests').update({
+    status: nextStatus,
+    approved_by_profile_id: nextStatus === 'approved' ? ctx.profile.id : undefined,
+    approved_at: nextStatus === 'approved' ? new Date().toISOString() : undefined,
+    approval_notes: toNullable(formData.get('approvalNotes')),
+    issued_by_profile_id: nextStatus === 'issued' || nextStatus === 'partially_issued' ? ctx.profile.id : undefined,
+    issued_at: nextStatus === 'issued' || nextStatus === 'partially_issued' ? new Date().toISOString() : undefined,
+    rejection_reason: nextStatus === 'rejected' ? toNullable(formData.get('rejectionReason')) : undefined,
+    issue_notes: toNullable(formData.get('issueNotes'))
+  }).eq('id', stockRequestId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  if (nextStatus === 'partially_issued' || nextStatus === 'issued') {
+    const issuedQty = Number(String(formData.get('issuedQty') ?? '').trim() || '0');
+    const itemId = String(formData.get('itemId') ?? '').trim();
+    if (itemId && issuedQty > 0) {
+      const { data: item } = await ctx.supabase
+        .from('farm_stock_request_items')
+        .select('issued_qty,requested_qty')
+        .eq('id', itemId)
+        .eq('stock_request_id', stockRequestId)
+        .eq('workshop_account_id', ctx.profile.workshop_account_id)
+        .maybeSingle();
+      if (item) {
+        const cumulativeIssued = (item.issued_qty ?? 0) + issuedQty;
+        await ctx.supabase.from('farm_stock_request_items').update({
+          issued_qty: cumulativeIssued,
+          item_status: cumulativeIssued >= (item.requested_qty ?? 0) ? 'issued' : 'partially_issued'
+        }).eq('id', itemId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+      }
+    }
+  }
+
+  await addHistory(ctx, 'farm_stock_request', stockRequestId, 'status_changed', { from: currentStatus, to: nextStatus });
+  revalidatePath('/farm/stores');
+  revalidatePath(`/farm/stores/${stockRequestId}`);
+}
+
+export async function createFarmDocument(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+
+  const title = String(formData.get('title') ?? '').trim();
+  const storagePath = String(formData.get('storagePath') ?? '').trim();
+  if (!title || !storagePath) return;
+  const expiryDate = toNullable(formData.get('expiryDate'));
+  const documentNumber = `FDOC-${Date.now()}`;
+
+  const { data } = await ctx.supabase.from('farm_documents').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    document_number: documentNumber,
+    title,
+    document_type: String(formData.get('documentType') ?? 'other').trim(),
+    linked_object_type: String(formData.get('linkedObjectType') ?? 'other').trim(),
+    linked_object_id: toNullable(formData.get('linkedObjectId')),
+    linked_object_label: toNullable(formData.get('linkedObjectLabel')),
+    effective_date: toNullable(formData.get('effectiveDate')),
+    expiry_date: expiryDate,
+    owner_profile_id: toNullable(formData.get('ownerProfileId')) ?? ctx.profile.id,
+    visibility_scope: String(formData.get('visibilityScope') ?? 'farm').trim(),
+    version: String(formData.get('version') ?? '1.0').trim(),
+    storage_path: storagePath,
+    status: String(formData.get('status') ?? 'active').trim(),
+    notes: toNullable(formData.get('notes')),
+    created_by: ctx.profile.id
+  }).select('id').single();
+  if (!data?.id) return;
+
+  await addHistory(ctx, 'farm_document', data.id, 'created', { document_number: documentNumber, document_type: String(formData.get('documentType') ?? 'other').trim(), expiry_date: expiryDate });
+  if (expiryDate) {
+    await createExpiringDocumentReminder(ctx, data.id, documentNumber, expiryDate);
+  }
+  revalidatePath('/farm/documents');
+  revalidatePath('/farm/dashboard');
+  revalidatePath('/farm/tasks');
+}
+
+export async function transitionFarmDocument(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const documentId = String(formData.get('documentId') ?? '').trim();
+  const nextStatus = String(formData.get('nextStatus') ?? '').trim();
+  if (!documentId || !FARM_DOCUMENT_STATUS_SET.has(nextStatus)) return;
+
+  const { data: existing } = await ctx.supabase.from('farm_documents')
+    .select('status,document_number')
+    .eq('id', documentId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  if (!existing?.status) return;
+
+  await ctx.supabase.from('farm_documents').update({
+    status: nextStatus,
+    version: String(formData.get('version') ?? '').trim() || undefined,
+    expiry_date: toNullable(formData.get('expiryDate')) ?? undefined,
+    notes: toNullable(formData.get('notes'))
+  }).eq('id', documentId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await addHistory(ctx, 'farm_document', documentId, 'status_changed', { from: existing.status, to: nextStatus });
+  revalidatePath('/farm/documents');
+  revalidatePath(`/farm/documents/${documentId}`);
 }
