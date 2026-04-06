@@ -34,6 +34,16 @@ const TASK_TRANSITIONS: Record<string, Set<string>> = {
   verified: new Set(),
   cancelled: new Set()
 };
+const INCIDENT_STATUSES = ['reported', 'under_response', 'contained', 'under_investigation', 'closed'] as const;
+type IncidentStatus = (typeof INCIDENT_STATUSES)[number];
+const INCIDENT_STATUS_SET = new Set<string>(INCIDENT_STATUSES);
+const INCIDENT_TRANSITIONS: Record<IncidentStatus, Set<IncidentStatus>> = {
+  reported: new Set(['under_response']),
+  under_response: new Set(['contained']),
+  contained: new Set(['under_investigation']),
+  under_investigation: new Set(['closed']),
+  closed: new Set()
+};
 
 const FARM_WORK_REQUEST_STATUSES = ['new', 'triaged', 'waiting_approval', 'approved', 'actioned', 'closed', 'rejected'] as const;
 const FARM_WORK_ORDER_STATUSES = ['open', 'triaged', 'approved', 'in_progress', 'waiting_parts', 'resolved', 'closed'] as const;
@@ -142,6 +152,11 @@ function toNullableJsonObject(value: FormDataEntryValue | null): Record<string, 
   } catch {
     return null;
   }
+}
+
+function toIdList(values: FormDataEntryValue[]): string[] {
+  const ids = values.map((value) => String(value).trim()).filter(Boolean);
+  return Array.from(new Set(ids));
 }
 
 async function addHistory(ctx: NonNullable<Awaited<ReturnType<typeof getFarmContext>>>, entityType: string, entityId: string, action: string, payload: Record<string, unknown>) {
@@ -994,24 +1009,33 @@ export async function reportFarmIncident(formData: FormData): Promise<void> {
   const occurredAt = String(formData.get('occurredAt') ?? '').trim();
   if (!title || !description || !occurredAt) return;
 
+  const impactedProfileIds = toIdList(formData.getAll('impactedProfileIds'));
+  const impactedAnimalIds = toIdList(formData.getAll('impactedAnimalIds'));
+  const impactedAssetIds = toIdList(formData.getAll('impactedAssetIds'));
+
   const { data } = await ctx.supabase
     .from('farm_incidents')
     .insert({
       workshop_account_id: ctx.profile.workshop_account_id,
       title,
       description,
+      incident_class: String(formData.get('incidentClass') ?? 'safety'),
       incident_type: String(formData.get('incidentType') ?? 'other'),
       severity: String(formData.get('severity') ?? 'medium'),
       site_id: toNullable(formData.get('siteId')),
-      area_id: toNullable(formData.get('areaId')),
+      location_area_id: toNullable(formData.get('locationAreaId')),
       occurred_at: occurredAt,
       owner_profile_id: toNullable(formData.get('ownerProfileId')),
-      reported_by: ctx.profile.id
+      reported_by: ctx.profile.id,
+      escalation_required: String(formData.get('escalationRequired') ?? '') === 'on',
+      root_cause_category: toNullable(formData.get('rootCauseCategory')),
+      status: 'reported'
     })
     .select('id')
     .single();
 
   if (!data?.id) return;
+  await syncIncidentImpacts(ctx, data.id, impactedProfileIds, impactedAnimalIds, impactedAssetIds);
   await addHistory(ctx, 'farm_incident', data.id, 'created', { title });
   revalidatePath('/farm/incidents');
 }
@@ -1021,17 +1045,65 @@ export async function updateIncidentWorkflow(formData: FormData): Promise<void> 
   if (!ctx) return;
   const incidentId = String(formData.get('incidentId') ?? '').trim();
   if (!incidentId) return;
+  const nextStatus = String(formData.get('status') ?? 'reported');
+  if (!INCIDENT_STATUS_SET.has(nextStatus)) return;
+
+  const { data: incident } = await ctx.supabase
+    .from('farm_incidents')
+    .select('status')
+    .eq('id', incidentId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  if (!incident?.status || !INCIDENT_STATUS_SET.has(incident.status)) return;
+  const currentStatus = incident.status as IncidentStatus;
+  const targetStatus = nextStatus as IncidentStatus;
+
+  const closureSummary = toNullable(formData.get('closureSummary'));
+  if (targetStatus === 'closed' && !closureSummary) return;
+  if (targetStatus !== currentStatus && !INCIDENT_TRANSITIONS[currentStatus].has(targetStatus)) return;
+
+  const impactedProfileIds = toIdList(formData.getAll('impactedProfileIds'));
+  const impactedAnimalIds = toIdList(formData.getAll('impactedAnimalIds'));
+  const impactedAssetIds = toIdList(formData.getAll('impactedAssetIds'));
 
   await ctx.supabase.from('farm_incidents').update({
-    status: String(formData.get('status') ?? 'open'),
+    status: targetStatus,
     site_id: toNullable(formData.get('siteId')),
-    area_id: toNullable(formData.get('areaId')),
+    location_area_id: toNullable(formData.get('locationAreaId')),
     corrective_action: toNullable(formData.get('correctiveAction')),
-    owner_profile_id: toNullable(formData.get('ownerProfileId'))
+    owner_profile_id: toNullable(formData.get('ownerProfileId')),
+    escalation_required: String(formData.get('escalationRequired') ?? '') === 'on',
+    root_cause_category: toNullable(formData.get('rootCauseCategory')),
+    closure_summary: closureSummary
   }).eq('id', incidentId).eq('workshop_account_id', ctx.profile.workshop_account_id);
 
-  await addHistory(ctx, 'farm_incident', incidentId, 'updated', { status: String(formData.get('status') ?? 'open') });
+  await syncIncidentImpacts(ctx, incidentId, impactedProfileIds, impactedAnimalIds, impactedAssetIds);
+  await addHistory(ctx, 'farm_incident', incidentId, 'updated', { from: currentStatus, to: targetStatus });
   revalidatePath('/farm/incidents');
+}
+
+async function syncIncidentImpacts(
+  ctx: NonNullable<Awaited<ReturnType<typeof getFarmContext>>>,
+  incidentId: string,
+  profileIds: string[],
+  animalIds: string[],
+  assetIds: string[]
+) {
+  await ctx.supabase
+    .from('farm_incident_impacts')
+    .delete()
+    .eq('incident_id', incidentId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  const rows = [
+    ...profileIds.map((id) => ({ workshop_account_id: ctx.profile.workshop_account_id, incident_id: incidentId, impacted_entity_type: 'person', profile_id: id })),
+    ...animalIds.map((id) => ({ workshop_account_id: ctx.profile.workshop_account_id, incident_id: incidentId, impacted_entity_type: 'animal', livestock_log_id: id })),
+    ...assetIds.map((id) => ({ workshop_account_id: ctx.profile.workshop_account_id, incident_id: incidentId, impacted_entity_type: 'asset', asset_id: id }))
+  ];
+
+  if (rows.length) {
+    await ctx.supabase.from('farm_incident_impacts').insert(rows);
+  }
 }
 
 export async function logFarmExpense(formData: FormData): Promise<void> {

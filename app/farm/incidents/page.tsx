@@ -17,11 +17,14 @@ export default async function FarmIncidentsPage({ searchParams }: { searchParams
   const { data: profile } = await supabase.from('profiles').select('workshop_account_id').eq('id', user.id).maybeSingle();
   if (!profile?.workshop_account_id) redirect('/login');
 
-  const [{ data: members }, incidentsRes] = await Promise.all([
+  const [{ data: members }, { data: areas }, { data: animals }, { data: assets }, incidentsRes] = await Promise.all([
     supabase.from('profiles').select('id,full_name').eq('workshop_account_id', profile.workshop_account_id).order('full_name', { ascending: true }),
+    supabase.from('farm_areas').select('id,name').eq('workshop_account_id', profile.workshop_account_id).eq('active', true).order('name', { ascending: true }),
+    supabase.from('livestock_logs').select('id,animal_id').eq('workshop_account_id', profile.workshop_account_id).order('created_at', { ascending: false }).limit(100),
+    supabase.from('farm_assets').select('id,name').eq('workshop_account_id', profile.workshop_account_id).order('name', { ascending: true }),
     supabase
       .from('farm_incidents')
-      .select('id,title,incident_type,severity,status,occurred_at,created_at,corrective_action,owner_profile_id', { count: 'exact' })
+      .select('id,incident_number,title,incident_class,incident_type,severity,status,occurred_at,created_at,corrective_action,owner_profile_id,location_area_id,escalation_required,root_cause_category,closure_summary,farm_incident_impacts(impacted_entity_type,profile_id,livestock_log_id,asset_id)', { count: 'exact' })
       .eq('workshop_account_id', profile.workshop_account_id)
       .order('occurred_at', { ascending: false })
       .range((page - 1) * 10, page * 10 - 1)
@@ -37,16 +40,31 @@ export default async function FarmIncidentsPage({ searchParams }: { searchParams
         <form action={reportFarmIncident} className="mt-4 grid gap-3 sm:grid-cols-2">
           <input name="title" placeholder="Incident title" className="rounded-lg border px-3 py-2" required />
           <input name="occurredAt" type="datetime-local" className="rounded-lg border px-3 py-2" required />
+          <select name="incidentClass" className="rounded-lg border px-3 py-2">
+            <option value="safety">Safety</option><option value="security_theft">Security/Theft</option><option value="animal_health">Animal health</option><option value="crop_health">Crop health</option><option value="utility_failure">Utility failure</option><option value="environmental">Environmental</option><option value="quality">Quality</option><option value="visitor">Visitor</option><option value="vehicle_accident">Vehicle/accident</option>
+          </select>
           <select name="incidentType" className="rounded-lg border px-3 py-2"><option value="safety">Safety</option><option value="biosecurity">Biosecurity</option><option value="equipment">Equipment</option><option value="environment">Environment</option><option value="security">Security</option><option value="other">Other</option></select>
           <select name="severity" className="rounded-lg border px-3 py-2"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select>
           <select name="ownerProfileId" className="rounded-lg border px-3 py-2"><option value="">Assign owner</option>{members?.map((member) => <option key={member.id} value={member.id}>{member.full_name || 'Unnamed'}</option>)}</select>
+          <select name="locationAreaId" className="rounded-lg border px-3 py-2"><option value="">Location area (optional)</option>{areas?.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select>
+          <input name="rootCauseCategory" placeholder="Root cause category (optional)" className="rounded-lg border px-3 py-2" />
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="escalationRequired" />Escalation required</label>
           <textarea name="description" className="sm:col-span-2 min-h-24 rounded-lg border px-3 py-2" placeholder="Describe incident context and immediate actions" required />
+          <select multiple name="impactedProfileIds" className="sm:col-span-2 rounded-lg border px-3 py-2">
+            {members?.map((member) => <option key={member.id} value={member.id}>{member.full_name || 'Unnamed member'}</option>)}
+          </select>
+          <select multiple name="impactedAnimalIds" className="sm:col-span-2 rounded-lg border px-3 py-2">
+            {animals?.map((animal) => <option key={animal.id} value={animal.id}>{animal.animal_id}</option>)}
+          </select>
+          <select multiple name="impactedAssetIds" className="sm:col-span-2 rounded-lg border px-3 py-2">
+            {assets?.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+          </select>
           <button className="sm:col-span-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white">Submit incident</button>
         </form>
       </Card>
 
       <div className="flex gap-2 text-sm">
-        {['all', 'open', 'investigating', 'resolved', 'closed'].map((status) => (
+        {['all', 'reported', 'under_response', 'contained', 'under_investigation', 'closed'].map((status) => (
           <a key={status} href={`/farm/incidents?status=${status}`} className={`rounded-full border px-3 py-1 ${selectedStatus === status ? 'border-amber-700 bg-amber-100' : 'border-gray-300'}`}>{status}</a>
         ))}
       </div>
@@ -58,13 +76,41 @@ export default async function FarmIncidentsPage({ searchParams }: { searchParams
               <h2 className="font-semibold text-black">{incident.title}</h2>
               <span className="rounded-full border px-2 py-0.5 text-xs uppercase tracking-wide">{incident.status}</span>
             </div>
-            <p className="mt-1 text-sm text-gray-600">{incident.incident_type} • {incident.severity} • {new Date(incident.occurred_at).toLocaleString()}</p>
+            <p className="mt-1 text-sm text-gray-600">{incident.incident_number} • {incident.incident_class} • {incident.incident_type} • {incident.severity} • {new Date(incident.occurred_at).toLocaleString()}</p>
             <form action={updateIncidentWorkflow} className="mt-3 grid gap-2 sm:grid-cols-3">
               <input type="hidden" name="incidentId" value={incident.id} />
-              <select defaultValue={incident.status} name="status" className="rounded-lg border px-2 py-1.5 text-sm"><option value="open">Open</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select>
+              <select defaultValue={incident.status} name="status" className="rounded-lg border px-2 py-1.5 text-sm"><option value="reported">Reported</option><option value="under_response">Under response</option><option value="contained">Contained</option><option value="under_investigation">Under investigation</option><option value="closed">Closed</option></select>
               <select defaultValue={incident.owner_profile_id || ''} name="ownerProfileId" className="rounded-lg border px-2 py-1.5 text-sm"><option value="">Assign owner</option>{members?.map((member) => <option key={member.id} value={member.id}>{member.full_name || 'Unnamed'}</option>)}</select>
               <button className="rounded-lg border px-2 py-1.5 text-sm">Update</button>
+              <select defaultValue={incident.location_area_id || ''} name="locationAreaId" className="rounded-lg border px-2 py-1.5 text-sm"><option value="">Location area</option>{areas?.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select>
+              <input defaultValue={incident.root_cause_category || ''} name="rootCauseCategory" className="rounded-lg border px-2 py-1.5 text-sm" placeholder="Root cause category" />
+              <label className="inline-flex items-center gap-2 rounded-lg border px-2 py-1.5 text-sm"><input type="checkbox" name="escalationRequired" defaultChecked={incident.escalation_required || false} />Escalation required</label>
               <textarea defaultValue={incident.corrective_action || ''} name="correctiveAction" className="sm:col-span-3 rounded-lg border px-2 py-1.5 text-sm" placeholder="Corrective action" />
+              <textarea defaultValue={incident.closure_summary || ''} name="closureSummary" className="sm:col-span-3 rounded-lg border px-2 py-1.5 text-sm" placeholder="Closure summary (required when closing)" />
+              <select
+                multiple
+                name="impactedProfileIds"
+                defaultValue={incident.farm_incident_impacts?.filter((impact) => impact.impacted_entity_type === 'person').map((impact) => impact.profile_id).filter(Boolean) ?? []}
+                className="sm:col-span-3 rounded-lg border px-2 py-1.5 text-sm"
+              >
+                {members?.map((member) => <option key={member.id} value={member.id}>{member.full_name || 'Unnamed member'}</option>)}
+              </select>
+              <select
+                multiple
+                name="impactedAnimalIds"
+                defaultValue={incident.farm_incident_impacts?.filter((impact) => impact.impacted_entity_type === 'animal').map((impact) => impact.livestock_log_id).filter(Boolean) ?? []}
+                className="sm:col-span-3 rounded-lg border px-2 py-1.5 text-sm"
+              >
+                {animals?.map((animal) => <option key={animal.id} value={animal.id}>{animal.animal_id}</option>)}
+              </select>
+              <select
+                multiple
+                name="impactedAssetIds"
+                defaultValue={incident.farm_incident_impacts?.filter((impact) => impact.impacted_entity_type === 'asset').map((impact) => impact.asset_id).filter(Boolean) ?? []}
+                className="sm:col-span-3 rounded-lg border px-2 py-1.5 text-sm"
+              >
+                {assets?.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+              </select>
             </form>
           </Card>
         ))}
