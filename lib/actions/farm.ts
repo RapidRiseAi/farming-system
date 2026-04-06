@@ -17,6 +17,15 @@ const FARM_STAFF_ROLES = new Set([
 
 const MANAGER_ROLES = new Set(['owner', 'farm_manager', 'supervisor', 'admin']);
 
+const FARM_ASSET_STATUSES = ['active', 'maintenance_due', 'in_repair', 'retired'] as const;
+const FARM_ASSET_STATUS_SET = new Set<string>(FARM_ASSET_STATUSES);
+const ASSET_STATUS_TRANSITIONS: Record<(typeof FARM_ASSET_STATUSES)[number], Set<(typeof FARM_ASSET_STATUSES)[number]>> = {
+  active: new Set(['maintenance_due', 'in_repair', 'retired']),
+  maintenance_due: new Set(['active', 'in_repair', 'retired']),
+  in_repair: new Set(['active', 'maintenance_due', 'retired']),
+  retired: new Set()
+};
+
 const TASK_TRANSITIONS: Record<string, Set<string>> = {
   open: new Set(['in_progress', 'blocked', 'cancelled']),
   in_progress: new Set(['blocked', 'done', 'cancelled']),
@@ -127,8 +136,8 @@ export async function completeFarmOnboarding(formData: FormData): Promise<void> 
 
   if (sampleData) {
     await ctx.supabase.from('farm_assets').insert([
-      { workshop_account_id: ctx.profile.workshop_account_id, name: 'North Pivot Irrigation', asset_type: 'irrigation', status: 'operational', site_name: 'North Field', created_by: ctx.profile.id },
-      { workshop_account_id: ctx.profile.workshop_account_id, name: 'Tractor A1', asset_type: 'equipment', status: 'operational', site_name: 'Main Yard', current_hours: 12, created_by: ctx.profile.id }
+      { workshop_account_id: ctx.profile.workshop_account_id, name: 'North Pivot Irrigation', asset_type: 'irrigation', status: 'active', site_name: 'North Field', created_by: ctx.profile.id },
+      { workshop_account_id: ctx.profile.workshop_account_id, name: 'Tractor A1', asset_type: 'equipment', status: 'active', site_name: 'Main Yard', current_hours: 12, created_by: ctx.profile.id }
     ]);
 
     const { data: sampleTask } = await ctx.supabase
@@ -174,6 +183,8 @@ export async function createFarmAsset(formData: FormData): Promise<void> {
   const serviceIntervalValue = toNullableNumber(formData.get('serviceIntervalValue')) ?? 250;
   const lastServiceMeter = toNullableNumber(formData.get('lastServiceMeter')) ?? 0;
   if (!name) return;
+  const status = String(formData.get('status') ?? 'active').trim();
+  if (!FARM_ASSET_STATUS_SET.has(status)) return;
   const now = new Date();
   const nextServiceDueAt = computeNextServiceDueAt(now, serviceIntervalType, serviceIntervalValue);
 
@@ -183,7 +194,7 @@ export async function createFarmAsset(formData: FormData): Promise<void> {
     asset_code: String(formData.get('assetCode') ?? '').trim() || `ASSET-${now.getTime()}`,
     qr_token: String(formData.get('qrToken') ?? '').trim() || crypto.randomUUID(),
     asset_type: assetType,
-    status: String(formData.get('status') ?? 'active'),
+    status,
     site_name: toNullable(formData.get('siteName')),
     site_id: toNullable(formData.get('siteId')),
     area_id: toNullable(formData.get('areaId')),
@@ -215,7 +226,23 @@ export async function updateFarmAsset(formData: FormData): Promise<void> {
 
   const assetId = String(formData.get('assetId') ?? '').trim();
   if (!assetId) return;
-  const status = String(formData.get('status') ?? 'active');
+  const status = String(formData.get('status') ?? 'active').trim();
+  if (!FARM_ASSET_STATUS_SET.has(status)) return;
+
+  const { data: existingAsset } = await ctx.supabase
+    .from('farm_assets')
+    .select('status')
+    .eq('id', assetId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  if (!existingAsset) return;
+
+  const currentStatus = String(existingAsset.status ?? '').trim() as (typeof FARM_ASSET_STATUSES)[number];
+  const allowedTransitions = ASSET_STATUS_TRANSITIONS[currentStatus];
+  if (currentStatus !== status && !allowedTransitions?.has(status as (typeof FARM_ASSET_STATUSES)[number])) {
+    return;
+  }
+
   const serviceIntervalType = String(formData.get('serviceIntervalType') ?? 'hours').trim();
   const serviceIntervalValue = toNullableNumber(formData.get('serviceIntervalValue'));
   const nextServiceDueAt = toNullable(formData.get('nextServiceDueAt'));

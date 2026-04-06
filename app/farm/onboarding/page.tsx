@@ -3,6 +3,13 @@ import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui/card';
 import { completeFarmOnboarding, createFarmAsset, createFarmTask, createWorker } from '@/lib/actions/farm';
 
+const FARM_ASSET_STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'maintenance_due', label: 'Maintenance due' },
+  { value: 'in_repair', label: 'In repair' },
+  { value: 'retired', label: 'Retired' }
+] as const;
+
 export default async function FarmOnboardingPage() {
   const supabase = await createClient();
   const {
@@ -57,6 +64,13 @@ export default async function FarmOnboardingPage() {
             <option value="other">Other</option>
           </select>
           <input name="siteName" className="rounded-lg border px-3 py-2" placeholder="Site" />
+          <select name="status" className="rounded-lg border px-3 py-2">
+            {FARM_ASSET_STATUS_OPTIONS.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
+          </select>
           <button className="sm:col-span-3 rounded-lg border border-emerald-300 px-3 py-2 text-sm font-semibold text-emerald-900">Add asset</button>
         </form>
       </Card>
