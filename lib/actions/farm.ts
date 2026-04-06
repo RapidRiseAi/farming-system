@@ -57,6 +57,13 @@ function toNullable(value: FormDataEntryValue | null): string | null {
   return input ? input : null;
 }
 
+function toNullableNumber(value: FormDataEntryValue | null): number | null {
+  const input = String(value ?? '').trim();
+  if (!input) return null;
+  const parsed = Number(input);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function toPointLiteral(latitude: FormDataEntryValue | null, longitude: FormDataEntryValue | null): string | null {
   const latValue = String(latitude ?? '').trim();
   const lngValue = String(longitude ?? '').trim();
@@ -93,6 +100,18 @@ async function addHistory(ctx: NonNullable<Awaited<ReturnType<typeof getFarmCont
 
 function isManager(role: string) {
   return MANAGER_ROLES.has(role);
+}
+
+function computeNextServiceDueAt(baseDate: Date, intervalType: string, intervalValue: number): string {
+  if (intervalType === 'days') {
+    const dueDate = new Date(baseDate);
+    dueDate.setUTCDate(dueDate.getUTCDate() + Math.max(1, Math.round(intervalValue)));
+    return dueDate.toISOString();
+  }
+  // Meter-based due dates are proxied to 30 days from now and can be overridden manually.
+  const fallback = new Date(baseDate);
+  fallback.setUTCDate(fallback.getUTCDate() + 30);
+  return fallback.toISOString();
 }
 
 export async function completeFarmOnboarding(formData: FormData): Promise<void> {
@@ -151,16 +170,33 @@ export async function createFarmAsset(formData: FormData): Promise<void> {
 
   const name = String(formData.get('name') ?? '').trim();
   const assetType = String(formData.get('assetType') ?? 'equipment').trim();
+  const serviceIntervalType = String(formData.get('serviceIntervalType') ?? 'hours').trim();
+  const serviceIntervalValue = toNullableNumber(formData.get('serviceIntervalValue')) ?? 250;
+  const lastServiceMeter = toNullableNumber(formData.get('lastServiceMeter')) ?? 0;
   if (!name) return;
+  const now = new Date();
+  const nextServiceDueAt = computeNextServiceDueAt(now, serviceIntervalType, serviceIntervalValue);
 
   const { data } = await ctx.supabase.from('farm_assets').insert({
     workshop_account_id: ctx.profile.workshop_account_id,
     name,
+    asset_code: String(formData.get('assetCode') ?? '').trim() || `ASSET-${now.getTime()}`,
+    qr_token: String(formData.get('qrToken') ?? '').trim() || crypto.randomUUID(),
     asset_type: assetType,
-    status: String(formData.get('status') ?? 'operational'),
+    status: String(formData.get('status') ?? 'active'),
     site_name: toNullable(formData.get('siteName')),
     site_id: toNullable(formData.get('siteId')),
     area_id: toNullable(formData.get('areaId')),
+    make: String(formData.get('make') ?? '').trim(),
+    model: String(formData.get('model') ?? '').trim(),
+    serial_number: String(formData.get('serialNumber') ?? '').trim(),
+    registration: String(formData.get('registration') ?? '').trim(),
+    assigned_profile_id: toNullable(formData.get('assignedProfileId')),
+    service_interval_type: serviceIntervalType,
+    service_interval_value: serviceIntervalValue,
+    last_service_meter: lastServiceMeter,
+    next_service_due_at: nextServiceDueAt,
+    criticality: String(formData.get('criticality') ?? 'medium'),
     current_hours: Number(String(formData.get('currentHours') ?? '').trim() || '0') || null,
     current_odometer_km: Number(String(formData.get('currentOdometerKm') ?? '').trim() || '0') || null,
     notes: toNullable(formData.get('notes')),
@@ -179,13 +215,28 @@ export async function updateFarmAsset(formData: FormData): Promise<void> {
 
   const assetId = String(formData.get('assetId') ?? '').trim();
   if (!assetId) return;
-  const status = String(formData.get('status') ?? 'operational');
+  const status = String(formData.get('status') ?? 'active');
+  const serviceIntervalType = String(formData.get('serviceIntervalType') ?? 'hours').trim();
+  const serviceIntervalValue = toNullableNumber(formData.get('serviceIntervalValue'));
+  const nextServiceDueAt = toNullable(formData.get('nextServiceDueAt'));
   await ctx.supabase.from('farm_assets').update({
+    asset_code: String(formData.get('assetCode') ?? '').trim() || undefined,
     name: String(formData.get('name') ?? '').trim() || undefined,
     status,
     site_name: toNullable(formData.get('siteName')),
     site_id: toNullable(formData.get('siteId')),
     area_id: toNullable(formData.get('areaId')),
+    make: String(formData.get('make') ?? '').trim(),
+    model: String(formData.get('model') ?? '').trim(),
+    serial_number: String(formData.get('serialNumber') ?? '').trim(),
+    registration: String(formData.get('registration') ?? '').trim(),
+    assigned_profile_id: toNullable(formData.get('assignedProfileId')),
+    service_interval_type: serviceIntervalType,
+    service_interval_value: serviceIntervalValue,
+    last_service_meter: toNullableNumber(formData.get('lastServiceMeter')),
+    next_service_due_at: nextServiceDueAt,
+    service_due_override_reason: toNullable(formData.get('serviceDueOverrideReason')),
+    criticality: String(formData.get('criticality') ?? 'medium'),
     notes: toNullable(formData.get('notes')),
     current_hours: Number(String(formData.get('currentHours') ?? '').trim() || '0') || null,
     current_odometer_km: Number(String(formData.get('currentOdometerKm') ?? '').trim() || '0') || null,
@@ -194,6 +245,139 @@ export async function updateFarmAsset(formData: FormData): Promise<void> {
 
   await addHistory(ctx, 'farm_asset', assetId, status === 'retired' ? 'archived' : 'updated', { status });
   revalidatePath('/farm/assets');
+}
+
+export async function fastUpdateAssetMeter(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const assetId = String(formData.get('assetId') ?? '').trim();
+  const meterType = String(formData.get('meterType') ?? 'hours').trim();
+  const meterReading = toNullableNumber(formData.get('meterReading'));
+  if (!assetId || meterReading === null) return;
+
+  const meterPatch = meterType === 'distance_km' ? { current_odometer_km: Math.round(meterReading) } : { current_hours: meterReading };
+  await ctx.supabase.from('farm_assets').update(meterPatch).eq('id', assetId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await ctx.supabase.from('farm_asset_service_events').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    asset_id: assetId,
+    event_type: 'meter_update',
+    meter_type: meterType,
+    meter_reading: meterReading,
+    created_by: ctx.profile.id,
+    notes: toNullable(formData.get('note'))
+  });
+
+  await addHistory(ctx, 'farm_asset', assetId, 'meter_updated', { meter_type: meterType, meter_reading: meterReading });
+  revalidatePath('/farm/assets');
+  revalidatePath(`/farm/assets/${assetId}`);
+}
+
+export async function overrideAssetServiceDue(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const assetId = String(formData.get('assetId') ?? '').trim();
+  const dueAt = toNullable(formData.get('nextServiceDueAt'));
+  const reason = toNullable(formData.get('reason'));
+  if (!assetId || !dueAt || !reason) return;
+
+  await ctx.supabase.from('farm_assets').update({
+    next_service_due_at: dueAt,
+    service_due_override_reason: reason
+  }).eq('id', assetId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await ctx.supabase.from('farm_asset_service_events').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    asset_id: assetId,
+    event_type: 'due_override',
+    due_at: dueAt,
+    override_reason: reason,
+    created_by: ctx.profile.id
+  });
+
+  await addHistory(ctx, 'farm_asset', assetId, 'service_due_overridden', { next_service_due_at: dueAt, reason });
+  revalidatePath('/farm/assets');
+  revalidatePath(`/farm/assets/${assetId}`);
+}
+
+export async function openAssetDowntime(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const assetId = String(formData.get('assetId') ?? '').trim();
+  const title = String(formData.get('title') ?? '').trim();
+  if (!assetId || !title) return;
+  const startedAt = new Date().toISOString();
+
+  const { data: fault } = await ctx.supabase.from('farm_asset_faults').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    asset_id: assetId,
+    title,
+    description: toNullable(formData.get('description')),
+    severity: String(formData.get('severity') ?? 'medium'),
+    downtime_started_at: startedAt,
+    reported_by: ctx.profile.id
+  }).select('id').single();
+
+  await ctx.supabase.from('farm_assets').update({
+    status: 'in_repair',
+    downtime_started_at: startedAt,
+    downtime_ended_at: null
+  }).eq('id', assetId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await addHistory(ctx, 'farm_asset', assetId, 'downtime_started', { fault_id: fault?.id, started_at: startedAt });
+  revalidatePath('/farm/assets');
+  revalidatePath(`/farm/assets/${assetId}`);
+}
+
+export async function closeAssetDowntime(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const assetId = String(formData.get('assetId') ?? '').trim();
+  const faultId = String(formData.get('faultId') ?? '').trim();
+  const closureSummary = String(formData.get('closureSummary') ?? '').trim();
+  if (!assetId || !faultId || !closureSummary) return;
+  const endedAt = new Date().toISOString();
+
+  await ctx.supabase.from('farm_asset_faults').update({
+    status: 'closed',
+    downtime_ended_at: endedAt,
+    closure_summary: closureSummary,
+    closed_by: ctx.profile.id
+  }).eq('id', faultId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await ctx.supabase.from('farm_assets').update({
+    status: 'active',
+    downtime_ended_at: endedAt
+  }).eq('id', assetId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await addHistory(ctx, 'farm_asset', assetId, 'downtime_closed', { fault_id: faultId, closure_summary: closureSummary });
+  revalidatePath('/farm/assets');
+  revalidatePath(`/farm/assets/${assetId}`);
+}
+
+export async function linkAssetDocument(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const assetId = String(formData.get('assetId') ?? '').trim();
+  const title = String(formData.get('title') ?? '').trim();
+  const storagePath = String(formData.get('storagePath') ?? '').trim();
+  if (!assetId || !title || !storagePath) return;
+
+  const { data } = await ctx.supabase.from('farm_asset_documents').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    asset_id: assetId,
+    document_type: String(formData.get('documentType') ?? 'other'),
+    title,
+    storage_path: storagePath,
+    uploaded_by: ctx.profile.id,
+    linked_service_event_id: toNullable(formData.get('linkedServiceEventId')),
+    linked_fault_id: toNullable(formData.get('linkedFaultId')),
+    notes: toNullable(formData.get('notes'))
+  }).select('id').single();
+
+  await addHistory(ctx, 'farm_asset', assetId, 'document_linked', { document_id: data?.id, title });
+  revalidatePath('/farm/assets');
+  revalidatePath(`/farm/assets/${assetId}`);
 }
 
 export async function createFarmSite(formData: FormData): Promise<void> {
