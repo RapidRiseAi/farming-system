@@ -35,6 +35,30 @@ const TASK_TRANSITIONS: Record<string, Set<string>> = {
   cancelled: new Set()
 };
 
+const FARM_WORK_REQUEST_STATUSES = ['new', 'triaged', 'waiting_approval', 'approved', 'actioned', 'closed', 'rejected'] as const;
+const FARM_WORK_ORDER_STATUSES = ['open', 'triaged', 'approved', 'in_progress', 'waiting_parts', 'resolved', 'closed'] as const;
+const FARM_WORK_REQUEST_STATUS_SET = new Set<string>(FARM_WORK_REQUEST_STATUSES);
+const FARM_WORK_ORDER_STATUS_SET = new Set<string>(FARM_WORK_ORDER_STATUSES);
+const REQUEST_TRANSITIONS: Record<(typeof FARM_WORK_REQUEST_STATUSES)[number], Set<(typeof FARM_WORK_REQUEST_STATUSES)[number]>> = {
+  new: new Set(['triaged', 'waiting_approval', 'rejected']),
+  triaged: new Set(['waiting_approval', 'approved', 'rejected']),
+  waiting_approval: new Set(['approved', 'rejected']),
+  approved: new Set(['actioned', 'closed']),
+  actioned: new Set(['closed']),
+  closed: new Set(),
+  rejected: new Set()
+};
+
+const WORK_ORDER_TRANSITIONS: Record<(typeof FARM_WORK_ORDER_STATUSES)[number], Set<(typeof FARM_WORK_ORDER_STATUSES)[number]>> = {
+  open: new Set(['triaged', 'approved', 'closed']),
+  triaged: new Set(['approved', 'in_progress', 'waiting_parts', 'closed']),
+  approved: new Set(['in_progress', 'waiting_parts', 'resolved', 'closed']),
+  in_progress: new Set(['waiting_parts', 'resolved', 'closed']),
+  waiting_parts: new Set(['in_progress', 'resolved', 'closed']),
+  resolved: new Set(['closed']),
+  closed: new Set()
+};
+
 async function getFarmContext() {
   const supabase = await createClient();
   const {
@@ -667,6 +691,218 @@ export async function createFarmTask(formData: FormData): Promise<void> {
   await addHistory(ctx, 'farm_task', data.id, 'created', { title, assignees: profileIds.length });
   revalidatePath('/farm/tasks');
   revalidatePath('/farm/dashboard');
+}
+
+export async function createFarmWorkRequest(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const shortDescription = String(formData.get('shortDescription') ?? '').trim();
+  const requestType = String(formData.get('requestType') ?? '').trim() || 'general';
+  if (!shortDescription) return;
+
+  const requestNumber = `FWR-${Date.now()}`;
+  const attachments = toNullableJsonObject(formData.get('attachments'));
+  const { data } = await ctx.supabase.from('farm_work_requests').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    request_number: requestNumber,
+    request_type: requestType,
+    status: 'new',
+    raised_by_profile_id: toNullable(formData.get('raisedByProfileId')) ?? ctx.profile.id,
+    site_id: toNullable(formData.get('siteId')),
+    area_id: toNullable(formData.get('areaId')),
+    short_description: shortDescription,
+    attachments: attachments ? [attachments] : [],
+    approval_required: String(formData.get('approvalRequired') ?? 'true') !== 'false',
+    approval_requested_at: String(formData.get('approvalRequested') ?? 'false') === 'true' ? new Date().toISOString() : null
+  }).select('id').single();
+
+  if (!data?.id) return;
+  await addHistory(ctx, 'farm_work_request', data.id, 'created', { request_number: requestNumber, request_type: requestType });
+  revalidatePath('/farm/requests');
+  revalidatePath('/farm/dashboard');
+}
+
+export async function transitionFarmWorkRequest(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const requestId = String(formData.get('requestId') ?? '').trim();
+  const nextStatus = String(formData.get('nextStatus') ?? '').trim() as (typeof FARM_WORK_REQUEST_STATUSES)[number];
+  if (!requestId || !FARM_WORK_REQUEST_STATUS_SET.has(nextStatus)) return;
+
+  const { data: existing } = await ctx.supabase
+    .from('farm_work_requests')
+    .select('status')
+    .eq('id', requestId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  if (!existing?.status) return;
+
+  const currentStatus = existing.status as (typeof FARM_WORK_REQUEST_STATUSES)[number];
+  if (currentStatus !== nextStatus && !REQUEST_TRANSITIONS[currentStatus]?.has(nextStatus)) return;
+  if ((nextStatus === 'approved' || nextStatus === 'closed' || nextStatus === 'rejected') && !isManager(ctx.profile.role)) return;
+
+  await ctx.supabase.from('farm_work_requests').update({
+    status: nextStatus,
+    triaged_by_profile_id: nextStatus === 'triaged' ? ctx.profile.id : undefined,
+    triaged_at: nextStatus === 'triaged' ? new Date().toISOString() : undefined,
+    approval_requested_at: nextStatus === 'waiting_approval' ? new Date().toISOString() : undefined,
+    approved_by_profile_id: nextStatus === 'approved' ? ctx.profile.id : undefined,
+    approved_at: nextStatus === 'approved' ? new Date().toISOString() : undefined,
+    approval_notes: toNullable(formData.get('approvalNotes')),
+    rejected_by_profile_id: nextStatus === 'rejected' ? ctx.profile.id : undefined,
+    rejected_at: nextStatus === 'rejected' ? new Date().toISOString() : undefined,
+    rejection_reason: nextStatus === 'rejected' ? toNullable(formData.get('rejectionReason')) : undefined
+  }).eq('id', requestId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await addHistory(ctx, 'farm_work_request', requestId, 'status_changed', { from: currentStatus, to: nextStatus });
+  revalidatePath('/farm/requests');
+  revalidatePath(`/farm/requests/${requestId}`);
+}
+
+export async function convertRequestToWorkOrder(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx || !isManager(ctx.profile.role)) return;
+  const requestId = String(formData.get('requestId') ?? '').trim();
+  if (!requestId) return;
+
+  const { data: request } = await ctx.supabase
+    .from('farm_work_requests')
+    .select('id,request_number,request_type,status,raised_by_profile_id,site_id,area_id,short_description,converted_work_order_id')
+    .eq('id', requestId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  if (!request || request.status !== 'approved' || request.converted_work_order_id) return;
+
+  const workOrderNumber = `FWO-${Date.now()}`;
+  const { data: createdWorkOrder } = await ctx.supabase
+    .from('farm_work_orders')
+    .insert({
+      workshop_account_id: ctx.profile.workshop_account_id,
+      work_order_number: workOrderNumber,
+      work_request_id: request.id,
+      request_number: request.request_number,
+      work_order_type: request.request_type,
+      status: 'approved',
+      raised_by_profile_id: request.raised_by_profile_id,
+      site_id: request.site_id,
+      area_id: request.area_id,
+      short_description: request.short_description,
+      approved_by_profile_id: ctx.profile.id,
+      approved_at: new Date().toISOString(),
+      approval_notes: toNullable(formData.get('approvalNotes')),
+      created_by: ctx.profile.id
+    })
+    .select('id')
+    .single();
+  if (!createdWorkOrder?.id) return;
+
+  await ctx.supabase.from('farm_work_requests').update({
+    status: 'actioned',
+    converted_work_order_id: createdWorkOrder.id,
+    conversion_notes: toNullable(formData.get('conversionNotes')),
+    converted_by_profile_id: ctx.profile.id,
+    converted_at: new Date().toISOString()
+  }).eq('id', request.id).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  const defaultTaskTitle = String(formData.get('childTaskTitle') ?? '').trim();
+  if (defaultTaskTitle) {
+    const { data: task } = await ctx.supabase
+      .from('farm_tasks')
+      .insert({
+        workshop_account_id: ctx.profile.workshop_account_id,
+        farm_work_order_id: createdWorkOrder.id,
+        title: defaultTaskTitle,
+        description: toNullable(formData.get('childTaskDescription')),
+        task_type: 'maintenance',
+        status: 'open',
+        priority: String(formData.get('childTaskPriority') ?? 'normal'),
+        due_at: toNullable(formData.get('childTaskDueAt')),
+        site_id: request.site_id,
+        area_id: request.area_id,
+        created_by: ctx.profile.id
+      })
+      .select('id')
+      .single();
+    if (task?.id) {
+      await addHistory(ctx, 'farm_task', task.id, 'created_from_work_order', { farm_work_order_id: createdWorkOrder.id });
+    }
+  }
+
+  await addHistory(ctx, 'farm_work_request', request.id, 'converted_to_work_order', { farm_work_order_id: createdWorkOrder.id });
+  await addHistory(ctx, 'farm_work_order', createdWorkOrder.id, 'created_from_request', { farm_work_request_id: request.id });
+  revalidatePath('/farm/requests');
+  revalidatePath('/farm/work-orders');
+}
+
+export async function transitionFarmWorkOrder(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const workOrderId = String(formData.get('workOrderId') ?? '').trim();
+  const nextStatus = String(formData.get('nextStatus') ?? '').trim() as (typeof FARM_WORK_ORDER_STATUSES)[number];
+  if (!workOrderId || !FARM_WORK_ORDER_STATUS_SET.has(nextStatus)) return;
+
+  const { data: existing } = await ctx.supabase
+    .from('farm_work_orders')
+    .select('status')
+    .eq('id', workOrderId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  if (!existing?.status) return;
+  const currentStatus = existing.status as (typeof FARM_WORK_ORDER_STATUSES)[number];
+  if (currentStatus !== nextStatus && !WORK_ORDER_TRANSITIONS[currentStatus]?.has(nextStatus)) return;
+
+  await ctx.supabase.from('farm_work_orders').update({
+    status: nextStatus,
+    approved_by_profile_id: nextStatus === 'approved' ? ctx.profile.id : undefined,
+    approved_at: nextStatus === 'approved' ? new Date().toISOString() : undefined,
+    approval_notes: toNullable(formData.get('approvalNotes')),
+    completed_at: nextStatus === 'resolved' || nextStatus === 'closed' ? new Date().toISOString() : undefined
+  }).eq('id', workOrderId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await addHistory(ctx, 'farm_work_order', workOrderId, 'status_changed', { from: currentStatus, to: nextStatus });
+  revalidatePath('/farm/work-orders');
+  revalidatePath(`/farm/work-orders/${workOrderId}`);
+}
+
+export async function createFarmWorkOrderTask(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const workOrderId = String(formData.get('workOrderId') ?? '').trim();
+  const title = String(formData.get('title') ?? '').trim();
+  if (!workOrderId || !title) return;
+
+  const { data: workOrder } = await ctx.supabase
+    .from('farm_work_orders')
+    .select('id,site_id,area_id')
+    .eq('id', workOrderId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  if (!workOrder) return;
+
+  const { data: task } = await ctx.supabase
+    .from('farm_tasks')
+    .insert({
+      workshop_account_id: ctx.profile.workshop_account_id,
+      farm_work_order_id: workOrder.id,
+      title,
+      description: toNullable(formData.get('description')),
+      task_type: String(formData.get('taskType') ?? 'maintenance'),
+      priority: String(formData.get('priority') ?? 'normal'),
+      status: 'open',
+      due_at: toNullable(formData.get('dueAt')),
+      site_id: workOrder.site_id,
+      area_id: workOrder.area_id,
+      created_by: ctx.profile.id
+    })
+    .select('id')
+    .single();
+
+  if (!task?.id) return;
+  await addHistory(ctx, 'farm_task', task.id, 'created_from_work_order', { farm_work_order_id: workOrderId });
+  await addHistory(ctx, 'farm_work_order', workOrderId, 'child_task_created', { farm_task_id: task.id, title });
+  revalidatePath('/farm/work-orders');
+  revalidatePath(`/farm/work-orders/${workOrderId}`);
+  revalidatePath('/farm/tasks');
 }
 
 export async function transitionFarmTask(formData: FormData): Promise<void> {

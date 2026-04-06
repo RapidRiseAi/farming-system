@@ -6,6 +6,8 @@ const links = [
   { href: '/farm/dashboard', label: 'Dashboard' },
   { href: '/farm/onboarding', label: 'Onboarding' },
   { href: '/farm/tasks', label: 'Tasks' },
+  { href: '/farm/requests', label: 'Requests' },
+  { href: '/farm/work-orders', label: 'Work Orders' },
   { href: '/farm/assets', label: 'Assets' },
   { href: '/farm/workforce', label: 'Workforce' },
   { href: '/farm/crops', label: 'Crops' },
