@@ -988,7 +988,10 @@ export async function addFarmTaskUpdate(formData: FormData): Promise<void> {
   if (!ctx) return;
 
   const taskId = String(formData.get('taskId') ?? '').trim();
-  const message = String(formData.get('message') ?? '').trim();
+  const baseMessage = String(formData.get('message') ?? '').trim();
+  const mediaPath = String(formData.get('updateMediaPath') ?? '').trim();
+  const mediaNote = String(formData.get('updateMediaNote') ?? '').trim();
+  const message = [baseMessage, mediaPath ? `Media: ${mediaPath}` : '', mediaNote ? `Media note: ${mediaNote}` : ''].filter(Boolean).join('\n');
   if (!taskId || !message) return;
 
   await ctx.supabase.from('farm_task_updates').insert({ task_id: taskId, message, created_by: ctx.profile.id });
@@ -1020,7 +1023,10 @@ export async function reportFarmIncident(formData: FormData): Promise<void> {
   if (!ctx) return;
 
   const title = String(formData.get('title') ?? '').trim();
-  const description = String(formData.get('description') ?? '').trim();
+  const baseDescription = String(formData.get('description') ?? '').trim();
+  const mediaPath = String(formData.get('incidentMediaPath') ?? '').trim();
+  const mediaNote = String(formData.get('incidentMediaNote') ?? '').trim();
+  const description = [baseDescription, mediaPath ? `Media: ${mediaPath}` : '', mediaNote ? `Media note: ${mediaNote}` : ''].filter(Boolean).join('\n');
   const occurredAt = String(formData.get('occurredAt') ?? '').trim();
   if (!title || !description || !occurredAt) return;
 
@@ -1329,6 +1335,14 @@ export async function createCropLog(formData: FormData): Promise<void> {
   const logDate = String(formData.get('logDate') ?? '').trim();
   if (!fieldId || !logDate) return;
 
+  const mediaPath = String(formData.get('logMediaPath') ?? '').trim();
+  const mediaNote = String(formData.get('logMediaNote') ?? '').trim();
+  const notes = [
+    toNullable(formData.get('notes')),
+    mediaPath ? `Media: ${mediaPath}` : null,
+    mediaNote ? `Media note: ${mediaNote}` : null
+  ].filter(Boolean).join('\n');
+
   const { data } = await ctx.supabase.from('crop_logs').insert({
     workshop_account_id: ctx.profile.workshop_account_id,
     field_id: fieldId,
@@ -1337,7 +1351,7 @@ export async function createCropLog(formData: FormData): Promise<void> {
     log_type: String(formData.get('logType') ?? 'other'),
     log_date: logDate,
     crop_name: toNullable(formData.get('cropName')),
-    notes: toNullable(formData.get('notes')),
+    notes: notes || null,
     created_by: ctx.profile.id
   }).select('id').single();
 

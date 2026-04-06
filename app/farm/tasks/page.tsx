@@ -2,15 +2,32 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui/card';
-import { addFarmTaskUpdate, addTaskProof, createFarmTask, transitionFarmTask } from '@/lib/actions/farm';
+import { addTaskProof, createFarmTask, transitionFarmTask } from '@/lib/actions/farm';
+import { TaskUpdateComposer } from '@/components/farm/task-update-composer';
+
+const TASK_TEMPLATES: Record<string, { title: string; taskType: string; priority: string; description: string }> = {
+  inspection: {
+    title: 'Daily safety inspection',
+    taskType: 'inspection',
+    priority: 'high',
+    description: 'Inspect PPE, emergency stations, and hazard controls.'
+  },
+  service: {
+    title: 'Scheduled asset service',
+    taskType: 'maintenance',
+    priority: 'normal',
+    description: 'Complete service checklist and attach proof.'
+  }
+};
 
 function isOverdue(task: { due_at: string | null; status: string }) {
   return Boolean(task.due_at && ['open', 'in_progress', 'blocked'].includes(task.status) && new Date(task.due_at).getTime() < Date.now());
 }
 
-export default async function FarmTasksPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+export default async function FarmTasksPage({ searchParams }: { searchParams: Promise<{ filter?: string; template?: string }> }) {
   const params = await searchParams;
   const filter = params.filter ?? 'all';
+  const template = TASK_TEMPLATES[params.template ?? ''] ?? TASK_TEMPLATES.inspection;
 
   const supabase = await createClient();
   const {
@@ -76,22 +93,22 @@ export default async function FarmTasksPage({ searchParams }: { searchParams: Pr
       <Card className="rounded-2xl border border-emerald-200 bg-white p-4">
         <h1 className="text-lg font-semibold text-emerald-950">Create farm task</h1>
         <form action={createFarmTask} className="mt-4 grid gap-3 sm:grid-cols-2">
-          <input name="title" placeholder="Task title" className="rounded-lg border px-3 py-2" required />
+          <input name="title" defaultValue={template.title} placeholder="Task title" className="rounded-lg border px-3 py-2" required />
           <input name="dueAt" type="datetime-local" className="rounded-lg border px-3 py-2" />
-          <select name="taskType" className="rounded-lg border px-3 py-2">
+          <select name="taskType" defaultValue={template.taskType} className="rounded-lg border px-3 py-2">
             <option value="general">General</option>
             <option value="maintenance">Maintenance</option>
             <option value="inspection">Inspection</option>
             <option value="crop">Crop</option>
             <option value="livestock">Livestock</option>
           </select>
-          <select name="priority" className="rounded-lg border px-3 py-2">
+          <select name="priority" defaultValue={template.priority} className="rounded-lg border px-3 py-2">
             <option value="low">Low</option>
             <option value="normal">Normal</option>
             <option value="high">High</option>
             <option value="critical">Critical</option>
           </select>
-          <textarea name="description" placeholder="Instructions + completion definition..." className="sm:col-span-2 min-h-24 rounded-lg border px-3 py-2" />
+          <textarea name="description" defaultValue={template.description} placeholder="Instructions + completion definition..." className="sm:col-span-2 min-h-24 rounded-lg border px-3 py-2" />
           <div className="sm:col-span-2 grid gap-2 sm:grid-cols-3">
             {teamProfiles?.map((member) => (
               <label key={member.id} className="text-sm text-gray-700">
@@ -153,11 +170,7 @@ export default async function FarmTasksPage({ searchParams }: { searchParams: Pr
               ))}
             </div>
 
-            <form action={addFarmTaskUpdate} className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <input type="hidden" name="taskId" value={task.id} />
-              <input name="message" placeholder="Add progress update..." className="flex-1 rounded-lg border px-3 py-2 text-sm" required />
-              <button className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Post update</button>
-            </form>
+            <TaskUpdateComposer taskId={task.id} />
 
             <form action={addTaskProof} className="mt-2 grid gap-2 sm:grid-cols-4">
               <input type="hidden" name="taskId" value={task.id} />

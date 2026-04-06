@@ -10,6 +10,7 @@ import {
   updateFarmProductionUnit,
   updateFarmSite
 } from '@/lib/actions/farm';
+import { QrEntryCard } from '@/components/farm/qr-entry-card';
 
 const AREA_TYPES = ['field', 'orchard', 'greenhouse', 'camp', 'feedlot', 'dam', 'borehole', 'workshop', 'packhouse', 'store', 'residence', 'gate', 'solar_array'];
 
@@ -159,6 +160,7 @@ export default async function FarmStructurePage() {
                 <select name="areaType" defaultValue={area.area_type} className="w-full rounded border px-2 py-1">{AREA_TYPES.map((areaType) => <option key={areaType} value={areaType}>{areaType}</option>)}</select>
                 <select name="active" defaultValue={String(area.active)} className="w-full rounded border px-2 py-1"><option value="true">Active</option><option value="false">Inactive</option></select>
                 <button className="rounded border px-2 py-1">Update</button>
+                <QrEntryCard label={`${area.name} area history`} href={`/farm/structure#area-${area.id}`} />
               </form>
             ))}
           </div>

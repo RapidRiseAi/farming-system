@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui/card';
 import { closeAssetDowntime, linkAssetDocument, openAssetDowntime } from '@/lib/actions/farm';
+import { QrEntryCard } from '@/components/farm/qr-entry-card';
 
 export default async function FarmAssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,6 +32,9 @@ export default async function FarmAssetDetailPage({ params }: { params: Promise<
       <p>Status: {asset.status} • Type: {asset.asset_type} • Criticality: {asset.criticality}</p>
       <p className="text-sm text-gray-600">Service due: {asset.next_service_due_at ? new Date(asset.next_service_due_at).toLocaleString() : 'Not set'} {asset.service_due_override_reason ? `• Override: ${asset.service_due_override_reason}` : ''}</p>
       <p className="text-sm text-gray-600">Downtime window: {asset.downtime_started_at ? new Date(asset.downtime_started_at).toLocaleString() : '—'} → {asset.downtime_ended_at ? new Date(asset.downtime_ended_at).toLocaleString() : 'Open'}</p>
+      <div className="mt-3 max-w-xs">
+        <QrEntryCard label={`${asset.name} history screen`} href={`/farm/assets/${asset.id}`} />
+      </div>
     </Card>
 
     <Card className="grid gap-3 p-4 sm:grid-cols-2">

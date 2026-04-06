@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui/card';
 import { createFarmAsset, fastUpdateAssetMeter, overrideAssetServiceDue, updateFarmAsset } from '@/lib/actions/farm';
+import { QrEntryCard } from '@/components/farm/qr-entry-card';
 
 const FARM_ASSET_STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
@@ -11,7 +12,9 @@ const FARM_ASSET_STATUS_OPTIONS = [
   { value: 'retired', label: 'Retired' }
 ] as const;
 
-export default async function FarmAssetsPage() {
+export default async function FarmAssetsPage({ searchParams }: { searchParams: Promise<{ template?: string }> }) {
+  const params = await searchParams;
+  const isServiceTemplate = params.template === 'service';
   const supabase = await createClient();
   const {
     data: { user }
@@ -46,7 +49,7 @@ export default async function FarmAssetsPage() {
           <input name="assetCode" required className="rounded-lg border px-3 py-2" placeholder="Asset code" />
           <input name="name" required className="rounded-lg border px-3 py-2" placeholder="Asset name" />
           <select name="assetType" className="rounded-lg border px-3 py-2"><option value="equipment">Equipment</option><option value="vehicle">Vehicle</option><option value="building">Building</option><option value="irrigation">Irrigation</option><option value="storage">Storage</option><option value="other">Other</option></select>
-          <select name="status" className="rounded-lg border px-3 py-2">
+          <select name="status" defaultValue={isServiceTemplate ? 'maintenance_due' : 'active'} className="rounded-lg border px-3 py-2">
             {FARM_ASSET_STATUS_OPTIONS.map((status) => (
               <option key={status.value} value={status.value}>
                 {status.label}
@@ -60,8 +63,8 @@ export default async function FarmAssetsPage() {
           <input name="siteName" className="rounded-lg border px-3 py-2" placeholder="Site" />
           <input name="currentHours" type="number" className="rounded-lg border px-3 py-2" placeholder="Hours" />
           <input name="currentOdometerKm" type="number" className="rounded-lg border px-3 py-2" placeholder="Odometer km" />
-          <select name="serviceIntervalType" className="rounded-lg border px-3 py-2"><option value="hours">Hours</option><option value="distance_km">Distance km</option><option value="days">Days</option></select>
-          <input name="serviceIntervalValue" type="number" required className="rounded-lg border px-3 py-2" placeholder="Service interval value" />
+          <select name="serviceIntervalType" defaultValue={isServiceTemplate ? 'days' : 'hours'} className="rounded-lg border px-3 py-2"><option value="hours">Hours</option><option value="distance_km">Distance km</option><option value="days">Days</option></select>
+          <input name="serviceIntervalValue" type="number" defaultValue={isServiceTemplate ? 30 : undefined} required className="rounded-lg border px-3 py-2" placeholder="Service interval value" />
           <input name="lastServiceMeter" type="number" required className="rounded-lg border px-3 py-2" placeholder="Last service meter" />
           <select name="criticality" className="rounded-lg border px-3 py-2"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select>
           <textarea name="notes" className="sm:col-span-3 rounded-lg border px-3 py-2" placeholder="Notes" />
@@ -114,6 +117,9 @@ export default async function FarmAssetsPage() {
             <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
               <p>Timeline: {(historyByAsset.get(asset.id) ?? []).slice(0, 4).map((evt) => evt.action).join(' → ') || 'No history yet'}</p>
               <Link href={`/farm/assets/${asset.id}`} className="text-emerald-700 underline">Details</Link>
+            </div>
+            <div className="mt-2 max-w-xs">
+              <QrEntryCard label={`Asset ${asset.name} history`} href={`/farm/assets/${asset.id}`} />
             </div>
           </Card>
         ))}
