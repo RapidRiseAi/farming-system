@@ -10,6 +10,7 @@ const links = [
   { href: '/farm/work-orders', label: 'Work Orders' },
   { href: '/farm/assets', label: 'Assets' },
   { href: '/farm/workforce', label: 'Workforce' },
+  { href: '/farm/visitors', label: 'Visitors' },
   { href: '/farm/crops', label: 'Crops' },
   { href: '/farm/livestock', label: 'Livestock' },
   { href: '/farm/stores', label: 'Stores' },
