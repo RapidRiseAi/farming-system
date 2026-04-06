@@ -1,0 +1,939 @@
+Rapid Rise AI Farm Operations Platform
+South African market research, operator model, and full product planOperations-first SaaS for farms, estates, and mixed operations
+Prepared for
+Rapid Rise AI
+Document purpose
+To define a full operations-first farm management product that can become the daily system of record outside of accounting software like Sage/Pastel.
+Research basis: Statistics South Africa, Department of Agriculture sources, Agbiz, SAQA, OECD, GLOBALG.A.P., SIZA, PPECB, RMIS, and Rapid Rise AI/TJ AutoVault source material.
+1. Executive summary
+This plan turns the TJ AutoVault pattern into a reusable South African farm operations platform. The product is intentionally operations-first: it will manage assets, work, livestock/crop events, incidents, documents, approvals, reminders, search, and customer/partner portals before attempting full accounting. In practical terms, the system should become the farmer’s daily operating system while Sage/Pastel remains the accounting system until a later phase.
+The market logic is strong. South Africa’s agricultural industry generated R491.7 billion of total income in 2023 and employed 770,181 people, with horticulture leading employment and animal production still contributing the largest share of income. South Africa is also highly export-oriented, with agricultural exports reaching a record US$15.1 billion in 2025. These realities make traceability, compliance, labour control, equipment uptime, and operational memory commercially valuable rather than optional.
+Product thesisBuild one multi-tenant operations platform with configurable modules and role-specific views. Start with the daily work of the farm: requests, tasks, assets, incidents, livestock/crop records, compliance files, reminders, and search. Add accounting later through exports and integrations rather than trying to replace Pastel on day one.
+• The product must be mobile-first, role-simple, and usable by people who are already comfortable with WhatsApp, paper sheets, whiteboards, and basic finance software.
+• The wow factor should come from safe AI: search, summaries, voice-note-to-draft, anomaly flags, and smart reminders. The AI must assist, not autonomously decide.
+• The system should support mixed South African realities: export horticulture, grain/crop operations, livestock, mixed farms, and estates/game operations, with modular industry packs.
+2. South African agriculture: what kind of market this product is entering
+South African farming is not one market. The product has to serve several operational archetypes that share a need for control and history, but not the same vocabulary or workflows.
+Farm archetype
+Operational reality
+Common SA footprint
+Export horticulture / fruit
+Strong labour intensity; food safety and buyer audits; spray, harvest, packhouse, cold-chain and document discipline matter most.
+Western Cape, Limpopo, Mpumalanga, Eastern Cape
+Field crops / grains / oilseeds
+Seasonal planning, field operations, machinery uptime, inputs, scouting, irrigation and contractor coordination are central.
+Free State, North West, Mpumalanga
+Livestock / red meat
+Animal health, movement, treatment, traceability, theft prevention, veld/camp management and biosecurity are core.
+Free State, North West, Eastern Cape, Limpopo, KZN
+Mixed farms
+Need one system that can handle both plant and animal workflows without forcing two separate tools.
+Common across commercial farms
+Game / estates / farm tourism
+Blend of livestock/wildlife records, vehicles, staff tasks, maintenance, visitor access and guest-facing operations.
+Limpopo, Mpumalanga, KZN, Eastern Cape
+Stats SA’s 2023 agricultural industry release shows that animals and animal products remained the largest contributor to total income, while horticulture carried the biggest share of employment. That mix matters for software design: livestock farms care deeply about traceability and disease control; horticulture-heavy businesses care intensely about labour, hygiene, traceability, buyer audits, and post-harvest handling. Mixed farms need both.
+South Africa’s export profile also matters. Agbiz reported record agricultural exports of US$15.1 billion in 2025. A farm platform that can preserve evidence, traceability, and compliance records is therefore strategically stronger than a simple task tracker. Even if the first version is operations-only, it should be built as a future compliance-grade system.
+3. What South African farm users are used to today
+The system should not be designed for idealised software-native users. It should be designed for how farms actually run. Research and market evidence point to a hybrid environment of smartphones, WhatsApp, spreadsheets, whiteboards, paper forms, and accounting software.
+Role
+Typical tool pattern
+Design implication
+Owner / principal
+Phone, WhatsApp, voice notes, email, finance software, occasional spreadsheet
+Needs oversight, approvals, alerts, and one-screen visibility rather than daily data entry.
+Farm manager / production manager
+WhatsApp, phone calls, spreadsheet, printed schedules, paper notebooks
+Needs work queues, status changes, exceptions, reminders, and field-ready mobile screens.
+Supervisor / foreman
+Phone, WhatsApp, paper checklists, whiteboard
+Needs very short capture flows, multilingual prompts, photo-first logging, and offline tolerance.
+Operators / labour teams
+Basic smartphone or supervised device use; paper instructions are still common
+Need tap-friendly tasks, icons, checklists, and as little typing as possible.
+Workshop / maintenance staff
+Job cards, paper logs, phone calls, parts lists, WhatsApp photos
+Need asset history, breakdown logging, photo proof, service reminders, and parts/stock requests.
+Admin / compliance / stores
+Spreadsheet, email, shared folders, printed files, Pastel/Sage
+Need document control, reminders, registers, approvals, and exportable records.
+Two digital-adoption insights are especially important. First, South African extension literature notes that the majority of South Africans, including older farmers, now use smartphone applications such as WhatsApp and Facebook. Second, research on digital technology use by farmers shows that low-tech tools are more positively perceived, while multilingual value-added services and context-specific design improve adoption. The right product strategy is therefore not 'advanced software first'; it is 'familiar mobile patterns first'.
+Non-negotiable design ruleIf a workflow is slower than sending a WhatsApp voice note and a photo, users will avoid it. The product must be almost as fast as WhatsApp for frontline logging, while giving management much richer structure and history.
+4. Training pathways and what they imply for role design
+South African agricultural qualifications are useful because they describe how labour and management responsibilities are typically staged. The software should mirror this reality instead of assuming everyone is an office user.
+Role layer
+Training/industry signal
+System capability
+Operator / labourer
+SAQA mixed/plant qualifications position learners to perform agricultural processes in established contexts under general supervision, guide others at lower level, and follow safety, quality, hygiene and technical standards.
+Task execution, checklist completion, photo proof, issue reporting, attendance, equipment use confirmation.
+Supervisor / team leader
+SAQA animal production pathways position farm operators to progress to supervisor roles that oversee quality production, supervise lower levels, and apply agri-business and good agricultural practices.
+Assign tasks, verify completion, sign off checklists, report incidents, escalate issues, manage team activity.
+Junior farm manager / production manager
+SAQA plant production pathways position supervisors to manage supervisors and working teams, take responsibility for quality and quantity of outputs, and ensure relevant safety, quality, hygiene and technical standards.
+Dashboards, approvals, schedule planning, work-order control, compliance oversight, operational reporting.
+Owner / enterprise lead
+Often combines strategic oversight with financial sign-off and stakeholder coordination rather than frontline capture.
+Portfolio view, risk dashboard, approvals, alerts, reports, partner/buyer portal visibility.
+This ladder leads to a simple product decision: the platform should never have one generic 'farm user' role. It should have role templates that fit how work is actually distributed on farms.
+5. Standards, operating expectations, and what the system must preserve
+A farm platform does not need to become a certification body, but it does need to preserve the evidence farms are already expected to maintain. The standards landscape points to a common records spine: traceability, worker health and safety, hygiene, production records, movement records, and document retention.
+Standard / operating expectation
+What buyers, regulators or industry expect
+System implication
+GLOBALG.A.P. IFA (fruit/veg)
+Food safety, environment, workers’ health/safety/welfare, production processes, traceability, audit evidence.
+Field activity logs, spray/input records, worker training acknowledgment, harvest/postharvest records, traceability links, document evidence.
+GLOBALG.A.P. IFA (combinable crops)
+All stages of production from propagation to postharvest handling; machine-harvested crop assurance.
+Field plans, operation logs, equipment logs, harvest event logs, bin/lot traceability, storage records.
+PPECB food safety audits
+Worker hygiene, plant protection products, traceability, good agricultural practices for regulated export products.
+Hygiene checks, spray/product logs, lot and dispatch traceability, worker training records, CAPA tasks.
+SIZA social/environmental expectations
+Working hours, wages, labour conditions, environmental and legal requirements, third-party audit readiness.
+Attendance summaries, overtime approvals, policy acknowledgments, incident logs, worker housing/health & safety checks, environmental action logs.
+Animal health / biosecurity
+Disease control, movement control, vaccination/treatment records, outbreak response, biosecurity protocols.
+Animal movement logs, treatment logs, biosecurity incidents, visitor/vehicle disinfection logs, quarantine status.
+RMIS traceability direction
+Production unit numbering, animal ID, movement data, standardised sharing across the red meat value chain.
+Production unit master data, herd/group identities, movement events, source-destination records, external data exchange hooks.
+The practical takeaway is simple: even before finance, the platform should act like an evidence engine. Every operation should leave a structured trail, with timestamps, user identity, location/site context, photos or documents where relevant, and a clear status history.
+Design implicationDo not store critical evidence only as unstructured notes. For every domain object—field, camp, herd, asset, work order, incident, visitor, document—store structured fields first, narrative notes second, and linked media third.
+6. Product vision and scope
+Working name for the product: Farm Operations Command System (FOCS). This can later be branded differently, but the name describes the design target: one place to run operations, preserve history, coordinate people, and expose the right portal view to the right stakeholder.
+• Operations-first, finance-later.
+• Multi-tenant SaaS with core engine + industry packs.
+• Role-native UX for owner, manager, supervisor, operator, workshop, stores, compliance, contractors, and external partners.
+• One system of memory: every object gets its own timeline and document history.
+• AI used only for safe assistive functions, never for autonomous agronomic or veterinary decisions in v1.
+6.1 What this platform is in v1
+• A farm structure register (sites, blocks, camps, facilities, production units).
+• An asset register and maintenance platform.
+• A livestock and/or crop operations platform, depending on the customer pack.
+• A work request, work order, task and incident system.
+• A document, evidence and audit-trail system.
+• A reminder and notifications engine.
+• An owner/manager portal plus scoped external partner portal.
+6.2 What this platform is not in v1
+• Not a full accounting replacement for Sage/Pastel yet.
+• Not an autonomous agronomy or veterinary decision engine.
+• Not a one-size-fits-all ERP that forces identical workflows onto fruit farms, grain farms, and livestock farms.
+• Not a data lake with no operator value. Every screen must solve an everyday operational problem.
+7. Role model, permissions, and core user journeys
+The role model should follow actual farm behaviour. Users should only see what matters to them. Complexity should accumulate upward, not downward.
+Role
+Main capabilities
+UX notes
+Owner / principal
+Cross-farm visibility, approvals, incidents, overdue work, partner/buyer portal status, reports, search, exports.
+Usually phone first, then desktop. Needs exception-driven design, not data-entry burden.
+General manager / farm manager
+Full operational control within tenant; create work orders; assign supervisors; close incidents; manage reminders and compliance tasks.
+Needs dashboard + queue + drill-down. Should be able to run daily ops from one command view.
+Production manager (crop or livestock)
+Area-specific scheduling, activity logs, inspections, quality checks, treatment approvals, field/herd status.
+Should land on today's priorities and overdue items.
+Workshop / maintenance manager
+Asset register, breakdowns, service schedules, parts requests, contractor jobs, downtime reporting.
+Needs machine history and a fast way to raise work orders from the yard.
+Stores / procurement controller
+Non-financial stock requests, issue/return tracking, approvals, low-stock alerts, supplier/contact master data.
+Keep simple and transactional; finance sync later.
+Compliance / admin
+Document vault, policy acknowledgments, training records, audit packs, visitor logs, worker files, report exports.
+Must be able to assemble evidence packs quickly.
+Supervisor / foreman
+Task list, team assignment, checklist completion, photo upload, issue escalation, attendance confirmation.
+Phone-first, high-contrast, minimal typing.
+Operator / worker
+Assigned tasks only, start/stop, checklist, simple issue report, photo, signature/confirmation.
+Should work with large tap targets and very short sessions.
+Contractor / vet / agronomist
+Only scoped jobs, observations, reports, sign-offs, attachments.
+Must be invite-based and access-limited.
+Buyer / external client
+Optional portal for order status, lot docs, dispatch history, supporting files.
+Read-mostly. Trust-building rather than operations-heavy.
+7.1 Critical user journeys
+Journey
+What the system must do
+Breakdown to closure
+Operator logs issue -> supervisor verifies -> work order created -> mechanic/contractor assigned -> parts request -> repair proof -> service history updated -> reminder reset.
+Field activity to audit evidence
+Manager schedules activity -> supervisor executes -> operator checklist/photo -> input/spray detail captured -> document or batch linkage stored -> audit/export available.
+Animal treatment cycle
+Manager schedules treatment -> team executes -> medicine and dose recorded -> follow-up due date created -> treatment history visible by herd/group/animal.
+Incident response
+User reports theft/safety/biosecurity issue -> severity and location captured -> escalation path triggered -> containment actions logged -> closure summary stored.
+Visitor/partner access
+Visit pre-approved -> identity captured -> purpose, area, escort and time logged -> entry/exit recorded -> any documents attached.
+8. Core platform architecture
+The product should be one multi-tenant core with configurable labels, fields, templates, and permissions. Different industry packs should extend the same engine instead of forking the product.
+Layer
+What it contains
+Tenant layer
+Company -> farm -> site -> area hierarchy; branding; plans; users; role templates; numbering rules.
+Structure layer
+Fields/blocks, camps/paddocks, orchards/units, facilities, dams, boreholes, stores, workshops, housing, production units.
+People layer
+Users, teams, contractors, consultants, buyers, suppliers, emergency contacts.
+Operations layer
+Requests, work orders, tasks, checklists, inspections, activities, incidents, approvals, reminders.
+Domain packs
+Assets & maintenance; livestock; crop/field ops; visitor/security; compliance/documents.
+Evidence layer
+Documents, photos, signatures, notes, linked records, generated reports, export packs.
+Audit layer
+Status history, field-change history for critical entities, who-did-what logs, immutable closings for key records.
+Intelligence layer
+Search, summaries, voice note parsing, anomaly flags, dashboard questions, safe AI assist.
+9. Detailed product modules and field design
+This section describes the modules that make the system daily-useful before finance. The most important rule is that each module must preserve structured history and must be fast enough for field use.
+9.1 Farm structure and master data
+Every serious farm system begins with a correct physical model of the operation. Without this, histories, reminders, and analytics become meaningless.
+• Master hierarchy: Company -> Farm -> Site -> Production Area / Facility.
+• Production areas should support multiple types: Field, Orchard Block, Greenhouse, Camp/Paddock, Feedlot Pen, Holding Area, Dam, Borehole, Workshop, Packhouse, Store, Residence, Gate, Solar Array.
+• Every area must support attachments, map coordinates, notes, active/inactive status, and parent-child relationships.
+Object
+Key fields required in v1
+Farm/Site
+Name, code, owner entity, province, GPS centroid, operational status, emergency contacts
+Field/Block
+Name/code, crop type or intended use, hectares, irrigation type, supervisor, GPS boundary/centroid, status
+Camp/Paddock
+Name/code, grazing status, carrying notes, linked herd/group, water point availability
+Facility
+Type, name, location, responsible person, risk class, service notes
+Production Unit
+Internal code, external standard code where relevant, linked site, status, remarks
+9.2 Asset register and maintenance
+For many farms this will be the first killer module. Equipment uptime, maintenance history, service reminders, and fault visibility are easy to value and hard to do well on paper.
+Field
+Type
+Req.
+Purpose / UX note
+Asset ID / QR code
+Text
+Yes
+Fast lookup in yard or field; printable QR/NFC label later.
+Asset type
+Enum
+Yes
+Tractor, bakkie, trailer, pump, pivot, generator, implement, borehole, solar, cold room, etc.
+Make / model
+Text
+Yes
+Shown in search and on card header.
+Serial / VIN / registration
+Text
+Conditional
+Support multiple identification systems.
+Site / current location
+Lookup
+Yes
+Critical for dispatch and service history.
+Assigned person/team
+Lookup
+No
+Useful for accountability.
+Commissioned / purchase date
+Date
+No
+Used later for lifecycle analytics.
+Service interval type
+Enum
+Yes
+By hours, km, days, months, or condition-based.
+Current meter
+Number
+No
+Hours/km/odometer; update flow should be very quick.
+Next service due
+Date/number
+Derived
+Calculated but overridable with reason.
+Criticality
+Enum
+Yes
+Low / medium / high / business-critical.
+Status
+Enum
+Yes
+Active, down, under repair, retired, standby.
+Documents
+Files
+No
+Manuals, warranties, certificates, photos.
+Timeline
+System
+Yes
+Every service, fault, inspection and change attaches here.
+Field
+Type
+Req.
+Purpose / UX note
+Work order number
+System
+Yes
+Human-readable reference.
+Source
+Enum
+Yes
+Preventive, breakdown, inspection, ad hoc, campaign.
+Linked asset
+Lookup
+Yes
+The work order belongs to one asset, facility or location.
+Reported by
+Lookup
+Yes
+User or external reporter.
+Problem summary
+Short text
+Yes
+One-line visible on cards and mobile lists.
+Detailed symptoms
+Long text
+No
+Expandable section, not mandatory on mobile.
+Severity / impact
+Enum
+Yes
+Safety, downtime, productivity, compliance.
+Date/time reported
+Datetime
+Yes
+Auto-stamped.
+Photos / video
+Media
+No
+Should be drag/drop or camera-first.
+Required action
+Checklist/steps
+No
+Mechanic plan or supervisor instruction.
+Parts/materials needed
+Linked rows
+No
+Non-financial now; later sync to stock/accounting.
+Assigned to
+Lookup
+No
+Team, mechanic or contractor.
+Status
+Enum
+Yes
+Open, triaged, approved, in progress, waiting parts, resolved, closed.
+Downtime start/end
+Datetime
+Conditional
+Important for analytics and critical assets.
+Close-out summary
+Long text
+Yes at closure
+Short, structured closure with root cause and follow-up.
+9.3 Livestock operations pack
+The livestock pack should support both group-level and per-animal workflows. South Africa’s traceability direction and disease environment make movement, treatment, and biosecurity records strategically important.
+• Start with group-first design: herd, flock, mob, or lot. Add per-animal detail only where the farm needs it.
+• Support links to external animal IDs, tags, and production unit references so future traceability integrations are possible.
+• Treat biosecurity as a first-class workflow, not a note field.
+Field
+Type
+Req.
+Purpose / UX note
+Event ID
+System
+Yes
+A single event record type should handle treatment, vaccination, movement, birth, mortality, inspection, weighing, and quarantine.
+Event type
+Enum
+Yes
+Treatment, vaccination, move, inspection, birth, death, cull, breeding, feed change, incident.
+Animal scope
+Enum
+Yes
+Individual, group, herd/flock, camp-level event.
+Animal/group reference
+Lookup
+Yes
+Supports group-first and individual mode.
+From location
+Lookup
+Conditional
+Required for movement events.
+To location
+Lookup
+Conditional
+Required for movement events.
+Date/time
+Datetime
+Yes
+Auto-now but editable with permission.
+Reason / diagnosis
+Text
+No
+Human-readable cause or purpose.
+Medicine / vaccine / input
+Lookup/Text
+Conditional
+Required for treatment-related events.
+Dose / quantity / unit
+Text
+Conditional
+Preserve the exact administered amount.
+Withholding / follow-up due
+Date
+No
+Useful for reminders and compliance.
+Performed by
+Lookup
+Yes
+Who physically did the work.
+Authorised by
+Lookup
+No
+Useful for manager/vet sign-off.
+Attachments
+Files/Media
+No
+Prescription, lab result, photo, certificate.
+Outcome / notes
+Long text
+No
+Kept concise on mobile; fuller notes on desktop.
+9.4 Crop and field operations pack
+The crop pack should be schedule-driven and field/block-centric. The system should support recurring seasonal operations as templates, then capture actual execution against the plan.
+Field
+Type
+Req.
+Purpose / UX note
+Activity ID
+System
+Yes
+Reference for field operation or observation.
+Activity type
+Enum
+Yes
+Planting, irrigation, scouting, spray, fertiliser, pruning, harvest, soil work, repair, sampling.
+Field/block
+Lookup
+Yes
+Primary operational object.
+Crop / cultivar / season
+Lookup/Text
+Yes
+Needed for context and later analytics.
+Planned date
+Date
+No
+For scheduling and variance reporting.
+Actual start / end
+Datetime
+Yes
+Auto-start from mobile where possible.
+Operator/team
+Lookup
+Yes
+Execution accountability.
+Equipment used
+Lookup list
+No
+Links to asset timelines and maintenance.
+Input/product
+Lookup/Text
+Conditional
+Required for spray/fertiliser/seed events.
+Rate / quantity / unit
+Text
+Conditional
+Should allow practical units farmers already use.
+Weather / conditions
+Short text
+No
+Optional but useful for certain operations.
+Observed issue
+Text
+No
+Pest, disease, blockage, leak, quality issue, etc.
+Photos / sample docs
+Media/files
+No
+Evidence and audit support.
+Status
+Enum
+Yes
+Planned, in progress, completed, blocked, cancelled.
+Supervisor sign-off
+Lookup/datetime
+No
+For critical activities and audit trails.
+9.5 Work requests, work orders, and daily tasks
+The farm should not jump straight from a message to a finished job. The system needs a funnel: request -> triage -> approved work order -> task execution -> closure -> history.
+Field
+Type
+Req.
+Purpose / UX note
+Request number
+System
+Yes
+Readable reference for calls, radios, and WhatsApp follow-up.
+Request type
+Enum
+Yes
+Breakdown, maintenance, stock need, farm task, incident follow-up, compliance action.
+Raised by
+Lookup
+Yes
+Auto-linked to user or external reporter.
+Site/area
+Lookup
+Yes
+The location of the request.
+Short description
+Short text
+Yes
+The only text visible on compact cards.
+Priority
+Enum
+Yes
+Low, normal, urgent, critical.
+Attachments
+Media/files
+No
+Photo and voice-note support should be easy.
+Approval required
+Yes/No
+Yes
+If yes, route to responsible manager.
+Approved by / at
+Lookup/datetime
+Conditional
+Auto-populated once approved.
+Converted work order
+Lookup
+No
+Back-link once actioned.
+Status
+Enum
+Yes
+New, triaged, waiting approval, approved, actioned, closed, rejected.
+Field
+Type
+Req.
+Purpose / UX note
+Task ID
+System
+Yes
+Can be standalone or attached to work order, incident, audit action, or reminder.
+Parent object
+Lookup
+No
+Work order, field activity, incident, herd event, audit action.
+Task title
+Short text
+Yes
+Written in plain-language action format.
+Task instructions
+Text/steps
+No
+Use checklist steps instead of paragraphs where possible.
+Assigned to
+User/team
+Yes
+One owner or team per task.
+Start / due / overdue
+Datetime
+Yes
+Critical for planning and escalation.
+Checklist
+Checklist
+No
+Optimise for tap-complete.
+Photo proof required
+Yes/No
+No
+Very helpful for remote supervision.
+Completion note
+Short text
+No
+Keep short on mobile.
+Completion proof
+Media/sign-off
+Conditional
+Required for some task templates.
+Status
+Enum
+Yes
+Not started, started, blocked, complete, rejected.
+9.6 Incident, risk, and biosecurity management
+Incidents are where the system becomes more than a tracker. Farmers invest quickly when a system helps contain real operational risk: theft, disease, worker injury, equipment failure, fire, water interruption, contamination, or a quality failure.
+Field
+Type
+Req.
+Purpose / UX note
+Incident number
+System
+Yes
+Readable reference.
+Incident class
+Enum
+Yes
+Safety, security/theft, animal health, crop health, utility failure, environmental, quality, visitor, vehicle/accident.
+Severity
+Enum
+Yes
+Minor, major, critical, emergency.
+Status
+Enum
+Yes
+Reported, under response, contained, under investigation, closed.
+Date/time discovered
+Datetime
+Yes
+Auto-now default.
+Location
+Lookup
+Yes
+Field, camp, facility, gate, road, etc.
+Reported by
+Lookup
+Yes
+Important for follow-up.
+People/animals/assets affected
+Lookups
+No
+Supports multi-object impact.
+What happened
+Long text
+Yes
+Narrative but structured with prompts.
+Immediate action taken
+Long text
+No
+Containment actions.
+Photos/video/docs
+Media/files
+No
+Evidence is often decisive here.
+Escalation required
+Yes/No
+Yes
+Triggers manager/owner alerts and workflows.
+Root cause category
+Enum
+No
+Filled later during review.
+Corrective actions
+Tasks
+No
+Creates follow-up task set.
+Closure summary
+Long text
+Yes at close
+Must not allow closure without summary.
+9.7 Stores, non-financial stock requests, and documents
+Before finance, stores and documents should still exist. Farmers need to know what is needed, what was issued, and where supporting files live, even if accounting values stay in Pastel.
+Field
+Type
+Req.
+Purpose / UX note
+Request ID
+System
+Yes
+For tracking and approval.
+Request type
+Enum
+Yes
+Issue stock, transfer stock, return stock, request order, emergency request.
+Requested by
+Lookup
+Yes
+Requester.
+Requested for
+Lookup
+No
+Task, work order, field, herd, asset, site.
+Item
+Lookup/Text
+Yes
+Simple item master now; valuation later.
+Quantity / unit
+Text
+Yes
+Practical units, not only formal stock units.
+Need-by date
+Date
+No
+Helps prioritise.
+Approved by
+Lookup
+No
+Owner/manager/stores.
+Issued by / on
+Lookup/datetime
+No
+Completes chain of custody.
+Status
+Enum
+Yes
+Requested, approved, issued, rejected, returned, partial.
+Field
+Type
+Req.
+Purpose / UX note
+Document ID
+System
+Yes
+Unique reference.
+Document type
+Enum
+Yes
+Manual, permit, certificate, policy, training record, SDS, vet report, audit evidence, photo pack, contract.
+Linked object
+Lookup
+No
+Field, herd, asset, work order, incident, person, supplier, visitor, lot.
+Issue/effective date
+Date
+No
+Useful for policies, permits, certificates.
+Expiry/review date
+Date
+No
+Drives reminders.
+Owner
+Lookup
+Yes
+Who is responsible for currency of the document.
+Visibility scope
+Enum
+Yes
+Internal only, manager only, shared with partner, shared with buyer.
+Version
+Text
+No
+Simple version control.
+File
+Upload
+Yes
+Stored in secure bucket.
+Notes
+Text
+No
+Short summary, not a dumping ground.
+9.8 Visitor access, security, and movement logs
+Farm access and movement matter in South Africa for both security and biosecurity reasons. The system should support prior arrangements, purpose of visit, check-in/out, and area restrictions.
+Field
+Type
+Req.
+Purpose / UX note
+Visit ID
+System
+Yes
+Readable reference.
+Visitor type
+Enum
+Yes
+Official, contractor, supplier, buyer, family, researcher, service provider, emergency services.
+Visitor / organisation
+Text
+Yes
+Individual and company.
+ID / vehicle registration
+Text
+No
+Useful for security and traceability.
+Purpose of visit
+Text
+Yes
+Clear reason required.
+Approved by
+Lookup
+Conditional
+Required for pre-approved access.
+Areas permitted
+Lookup list
+Yes
+Gate, workshop, block, camp, residence, packhouse, etc.
+Escort required
+Yes/No
+No
+Security safeguard.
+Biosecurity protocol complete
+Yes/No
+No
+For livestock-sensitive sites.
+Check-in / check-out
+Datetime
+Yes
+Time-based audit trail.
+Notes / exceptions
+Text
+No
+Unexpected behavior, route deviation, etc.
+9.9 Notifications, reminders, timelines, search, and reporting
+This is where the platform becomes sticky. A farm will live inside the system when it reliably reminds, alerts, summarises, and helps users find the last time something happened.
+• Every core object needs a timeline: asset, field/block, camp, herd/group, work order, incident, document set, visitor, task template.
+• Reminders should be both date-based and event-based: service due, follow-up treatment due, inspection overdue, document expiry, overdue task, unresolved incident.
+• Search must work in plain language and across entities.
+• Dashboards must be role-specific and exception-led, not report-dump pages.
+Dashboard
+Must show
+Owner dashboard
+Critical incidents, assets down, overdue services, overdue treatments, blocked work, approvals pending, compliance expiries, top recurring failures.
+Farm manager dashboard
+Today's work, overdue work orders, waiting approvals, active incidents by site, contractor jobs, completion rate, labour visibility.
+Production dashboard
+Field/camp activity completion, treatment due, irrigation alerts, scouting issues, harvest progression, quality exceptions.
+Workshop dashboard
+Breakdowns open, assets down, MTTR trend, parts waiting, contractor work, next services due.
+Compliance dashboard
+Expiring documents, audit actions open, worker training due, visitor access exceptions, policy acknowledgments missing.
+10. AI: wow factor without operational risk
+AI should make the product feel unusually useful, but never become a source of silent operational or compliance risk. The rule is simple: AI may draft, search, summarise, classify, highlight, or recommend; humans approve anything that changes operational truth.
+AI feature
+Value
+Guardrail
+Natural-language search
+User asks 'show me all pump failures in the last six months' or 'what treatments were done in Camp 7?'
+AI only retrieves from internal records and documents; no invented answers; show source records.
+Weekly farm summary
+Summarise incidents, overdue work, due services, unresolved risks, key completed actions.
+Summary cites system records and links back to them.
+Voice note to structured draft
+Convert a supervisor voice note into a draft incident, task, or work request.
+Nothing saves automatically; user reviews fields before submit.
+Document extraction
+Read a vet report, certificate, delivery note, or service sheet and extract dates, IDs, and due dates.
+User confirms before commit; keep original file linked.
+Anomaly flags
+Highlight repeated failures, repeated leaks, same site with recurring incidents, overdue patterns.
+Treat as prompts, not decisions; allow dismiss and explain why.
+SOP copilot
+Answer 'what is the shutdown checklist for Pivot 3?' or 'what is our quarantine protocol?'
+Ground only in approved SOP documents uploaded by the farm.
+Multilingual instruction draft
+Translate or simplify task instructions into local language/plain-language versions.
+Always show manager-approved base instruction and translated version together.
+Dashboard Q&A
+Owner asks 'what is most overdue today?' or 'which assets create the most downtime?'
+Answers must be derived from structured data and time ranges, not guesswork.
+10.1 AI features to avoid in v1
+• No autonomous treatment or vaccination recommendations.
+• No autonomous agronomy recommendations that directly instruct chemical or nutrient actions without human review and domain responsibility.
+• No autonomous purchasing or inventory commitments.
+• No chatbot that answers technical farm questions from the open internet as if it were authoritative.
+• No silent auto-closing of incidents, work orders, or compliance actions.
+11. User experience blueprint: how to make the system genuinely farmer-friendly
+Most farm software fails not because the idea is wrong, but because daily capture is too slow, too abstract, too office-like, or too rigid. The UX should reflect how work happens outdoors, under time pressure, with gloves, dust, patchy signal, and varying literacy levels.
+Principle
+What it means in the product
+Phone-first design
+Primary frontline workflows on mobile; management functions expand on desktop rather than the other way around.
+Time-to-log under 60 seconds
+The common frontline actions—raise issue, complete task, add photo, confirm treatment, check in—must be faster than typing a long WhatsApp.
+Progressive disclosure
+Show only the minimum fields first. Expand optional detail only when needed.
+Photo and checklist before long text
+Frontline users will attach media and tap boxes more consistently than they will type paragraphs.
+Role-native home screen
+Each role lands on its own queue: today's jobs, approvals, alerts, or documents due.
+Offline-friendly behavior
+Allow draft capture, queued uploads, and sync retry indicators. Never drop user input silently.
+Template everything
+Use task templates, incident templates, treatment templates, service templates, audit templates, and saved filters.
+Plain language labels
+Use the words the farm already uses: camp, pivot, herd, block, loader, dipping, etc. Allow tenant-level terminology.
+Large tap targets and clear status colors
+Design for outdoor use and fast glanceability.
+Search from everywhere
+A persistent search bar that can find asset IDs, fields, camps, incidents, and documents is a major usability unlock.
+QR/NFC shortcuts
+Scanning a machine or area should open its history and fastest next actions.
+Trust indicators
+Always show who logged something, when, and whether it was edited or approved.
+11.1 Micro-interaction rules
+• Use one primary action per screen.
+• Always show status in a single chip near the title.
+• After save, offer the next likely action rather than sending the user back to a list.
+• Use camera and voice as first-class inputs.
+• Make date/time and location auto-default where safe.
+• Keep destructive actions rare, permissioned, and reversible where possible.
+• Use empty states to teach the workflow.
+• Do not force users to understand system architecture just to complete a task.
+12. Integrations, exports, and future finance readiness
+Even before building finance, the product should be finance-ready. That means preserving operational references, dates, users, sites, attachments, and entity IDs so they can later map cleanly into accounting, payroll, or procurement systems.
+Integration area
+What to support
+CSV/Excel import/export
+Essential for migration and for farms already working in spreadsheets.
+Sage/Pastel export layer
+At minimum: work orders, stock issues, supplier references, usage logs, and document links exported in predictable formats.
+Email
+For approvals, reminders, reports, and partner notifications.
+WhatsApp/SMS notifications
+Very high value later, but keep core event and template model in place from day one.
+Document storage
+Private object storage with signed URLs, version handling, and retention controls.
+Map/GPS integration
+Area, site, field, camp, and movement views should support GPS points and boundaries.
+IoT / telemetry hooks
+Optional later for pumps, tanks, power, cold rooms, solar, and generators.
+Identity and onboarding
+Invite-based onboarding, OTP/login support, role-aware first-run setup.
+13. Build roadmap
+Phase
+Outcome
+Phase 0: discovery templates
+Define archetype-specific terminology packs, forms, statuses, and report templates; validate with at least one livestock and one crop operator.
+Phase 1: core platform
+Tenant setup, farm structure, users/roles, requests, work orders, tasks, incidents, documents, reminders, timelines, dashboards.
+Phase 2: asset + maintenance
+Asset register, service schedules, downtime, mechanic/contractor workflows, QR lookups.
+Phase 3A: livestock pack
+Herd/group records, treatment/vaccine logs, movement events, biosecurity incidents, vet partner portal.
+Phase 3B: crop pack
+Field operations, spray/input records, scouting, irrigation checks, harvest events, quality incidents.
+Phase 4: AI assist layer
+Search, summaries, voice notes, document extraction, dashboard Q&A, anomaly flags.
+Phase 5: external portals
+Owner portal refinement, contractor portal, buyer/client portal, compliance packs.
+Phase 6: finance bridge
+Pastel/Sage integrations/exports, stores to stock/value bridge, optional billing/AR/AP foundation.
+14. Product success metrics
+• At least 80% of maintenance/breakdown events logged in the system within 24 hours.
+• At least 70% of frontline task completions recorded with status + timestamp + responsible user.
+• Less than 60 seconds median time for basic issue logging on mobile.
+• At least 90% of critical documents stored against an object with expiry or review dates where relevant.
+• At least 80% of overdue reminders resolved or re-scheduled within the system rather than ignored.
+• Reduction in repeated asset failures, repeated incidents, and lost information during staff handovers.
+15. Starting from the TJ AutoVault base
+Rapid Rise AI does not start from zero. The uploaded TJ AutoVault capability map already shows patterns worth reusing: multi-tenant scoping, role-aware access, customer/portal surfaces, structured work requests, job-card style execution, secure file uploads/downloads, notifications, timelines, and audit-log entities. Those are strong foundations for an operations-first farm system. The farming product should keep the patterns and replace the nouns: vehicle becomes asset, job card becomes work order, customer portal becomes owner/partner portal, and service timelines become farm-object timelines.
+• Keep: multi-tenancy, RLS mindset, secure files, notifications, structured workflows, timelines, audit logs.
+• Refactor: workshop/customer vocabulary into farm/site/area/asset/herd/field vocabulary.
+• Extend: offline-first mobile UX, role templates for farm operations, compliance packs, and safe AI assists.
+16. Research references used in this plan
+• R1. Statistics South Africa. Agricultural industry, 2023 (Report No. 11-01-01, published 2025).
+• R2. Statistics South Africa. Fresh off the vine: What do our farms produce? (2025 data story).
+• R3. Statistics South Africa. Census of Commercial Agriculture, 2017 (published 2020).
+• R4. Agbiz. South Africa's agricultural exports reach a fresh high in 2025 (11 February 2026).
+• R5. Rapid Rise AI website: Business automation and software systems (rapidriseai.com).
+• R6. SAQA qualification 48975: Plant production operator pathway.
+• R7. SAQA qualification 49009: Plant production junior farm manager pathway.
+• R8. SAQA qualification 49048: Animal production supervisor pathway.
+• R9. SAQA qualification 48977: Mixed farming systems operator pathway.
+• R10. PPECB Food Safety Services page: focus on worker hygiene, plant protection products, traceability, and good agricultural practices.
+• R11. GLOBALG.A.P. Integrated Farm Assurance for fruit and vegetables.
+• R12. GLOBALG.A.P. Integrated Farm Assurance for combinable crops.
+• R13. SIZA Working Hours and Wages in Agriculture Guideline (2023).
+• R14. OECD. The digitalisation of agriculture.
+• R15. OECD. Policies to bolster trust in agricultural digitalisation.
+• R16. South African Journal of Agricultural Extension (2025): majority of South Africans, including older farmers, use smartphone apps such as WhatsApp and Facebook.
+• R17. Social media in agriculture review (2024): WhatsApp most used to communicate with peers and farmers.
+• R18. Utilisation of Digital Technologies by Smallholder Farmers in South Africa (SAJAE 2023): low-tech digital tools, multilingual design, awareness and constraints.
+• R19. RMIS traceability platform pages and press releases (2024-2025).
+• R20. Department of Agriculture 2025 newsletters on animal health, FMD and disease response.
+• R21. INTERGIS/National Animal Database tender documentation (2024-2029).
