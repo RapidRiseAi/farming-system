@@ -39,6 +39,21 @@ const FARM_WORK_REQUEST_STATUSES = ['new', 'triaged', 'waiting_approval', 'appro
 const FARM_WORK_ORDER_STATUSES = ['open', 'triaged', 'approved', 'in_progress', 'waiting_parts', 'resolved', 'closed'] as const;
 const FARM_WORK_REQUEST_STATUS_SET = new Set<string>(FARM_WORK_REQUEST_STATUSES);
 const FARM_WORK_ORDER_STATUS_SET = new Set<string>(FARM_WORK_ORDER_STATUSES);
+const LIVESTOCK_EVENT_TYPES = [
+  'treatment',
+  'vaccination',
+  'move',
+  'inspection',
+  'birth',
+  'death',
+  'cull',
+  'breeding',
+  'feed_change',
+  'incident'
+] as const;
+const LIVESTOCK_EVENT_TYPE_SET = new Set<string>(LIVESTOCK_EVENT_TYPES);
+const LIVESTOCK_EVENT_SCOPES = ['individual', 'group', 'herd', 'camp'] as const;
+const LIVESTOCK_EVENT_SCOPE_SET = new Set<string>(LIVESTOCK_EVENT_SCOPES);
 const REQUEST_TRANSITIONS: Record<(typeof FARM_WORK_REQUEST_STATUSES)[number], Set<(typeof FARM_WORK_REQUEST_STATUSES)[number]>> = {
   new: new Set(['triaged', 'waiting_approval', 'rejected']),
   triaged: new Set(['waiting_approval', 'approved', 'rejected']),
@@ -1129,26 +1144,73 @@ export async function createLivestockHerd(formData: FormData): Promise<void> {
   revalidatePath('/farm/livestock');
 }
 
-export async function createLivestockLog(formData: FormData): Promise<void> {
+export async function createLivestockEvent(formData: FormData): Promise<void> {
   const ctx = await getFarmContext();
   if (!ctx) return;
-  const herdId = String(formData.get('herdId') ?? '').trim();
-  const logDate = String(formData.get('logDate') ?? '').trim();
-  if (!herdId || !logDate) return;
 
-  const { data } = await ctx.supabase.from('livestock_logs').insert({
+  const herdId = String(formData.get('herdId') ?? '').trim();
+  const eventDate = String(formData.get('eventDate') ?? '').trim();
+  const eventType = String(formData.get('eventType') ?? '').trim();
+  const scope = String(formData.get('scope') ?? 'herd').trim();
+  if (!herdId || !eventDate || !LIVESTOCK_EVENT_TYPE_SET.has(eventType) || !LIVESTOCK_EVENT_SCOPE_SET.has(scope)) return;
+
+  const followUpDueDate = toNullable(formData.get('followUpDueDate'));
+  const fromAreaId = toNullable(formData.get('fromAreaId'));
+  const toAreaId = toNullable(formData.get('toAreaId'));
+  const notes = toNullable(formData.get('notes'));
+  const medicineInput = toNullable(formData.get('medicineInput'));
+  const dose = toNullableNumber(formData.get('dose'));
+  const doseUnit = toNullable(formData.get('doseUnit'));
+  const performedBy = toNullable(formData.get('performedBy')) ?? ctx.profile.id;
+  const authorisedBy = toNullable(formData.get('authorisedBy'));
+  const attachments = toNullableJsonObject(formData.get('attachments'));
+
+  const { data } = await ctx.supabase.from('livestock_events').insert({
     workshop_account_id: ctx.profile.workshop_account_id,
     herd_id: herdId,
     site_id: toNullable(formData.get('siteId')),
     area_id: toNullable(formData.get('areaId')),
-    log_type: String(formData.get('logType') ?? 'other'),
-    log_date: logDate,
+    event_reference: toNullable(formData.get('eventReference')) ?? `LE-${Date.now()}`,
+    event_type: eventType,
+    scope,
+    event_date: eventDate,
+    from_area_id: eventType === 'move' ? fromAreaId : null,
+    to_area_id: eventType === 'move' ? toAreaId : null,
     quantity: Number(String(formData.get('quantity') ?? '').trim() || '0') || null,
-    notes: toNullable(formData.get('notes')),
+    medicine_input: medicineInput,
+    dose,
+    dose_unit: doseUnit,
+    follow_up_due_date: followUpDueDate,
+    performed_by: performedBy,
+    authorised_by: authorisedBy,
+    attachments: attachments ? [attachments] : [],
+    notes,
     created_by: ctx.profile.id
   }).select('id').single();
 
   if (!data?.id) return;
-  await addHistory(ctx, 'livestock_log', data.id, 'created', { herd_id: herdId });
+
+  if (followUpDueDate) {
+    await ctx.supabase.from('farm_tasks').insert({
+      workshop_account_id: ctx.profile.workshop_account_id,
+      title: `Livestock follow-up: ${eventType.replace('_', ' ')}`,
+      description: notes ?? `Follow-up due for livestock event ${data.id}.`,
+      task_type: 'livestock',
+      priority: 'normal',
+      status: 'open',
+      due_at: `${followUpDueDate}T09:00:00.000Z`,
+      site_id: toNullable(formData.get('siteId')),
+      area_id: eventType === 'move' ? toAreaId : toNullable(formData.get('areaId')),
+      created_by: ctx.profile.id
+    });
+  }
+
+  await addHistory(ctx, 'livestock_event', data.id, 'created', {
+    herd_id: herdId,
+    event_type: eventType,
+    scope,
+    follow_up_due_date: followUpDueDate
+  });
   revalidatePath('/farm/livestock');
+  revalidatePath('/farm/tasks');
 }
