@@ -73,6 +73,15 @@ const WORK_ORDER_TRANSITIONS: Record<(typeof FARM_WORK_ORDER_STATUSES)[number], 
   resolved: new Set(['closed']),
   closed: new Set()
 };
+const CROP_ACTIVITY_STATUSES = ['planned', 'in_progress', 'completed', 'blocked', 'cancelled'] as const;
+const CROP_ACTIVITY_STATUS_SET = new Set<string>(CROP_ACTIVITY_STATUSES);
+const CROP_ACTIVITY_TRANSITIONS: Record<(typeof CROP_ACTIVITY_STATUSES)[number], Set<(typeof CROP_ACTIVITY_STATUSES)[number]>> = {
+  planned: new Set(['in_progress', 'blocked', 'cancelled']),
+  in_progress: new Set(['completed', 'blocked', 'cancelled']),
+  completed: new Set(),
+  blocked: new Set(['in_progress', 'cancelled']),
+  cancelled: new Set()
+};
 
 async function getFarmContext() {
   const supabase = await createClient();
@@ -1119,6 +1128,129 @@ export async function createCropLog(formData: FormData): Promise<void> {
 
   if (!data?.id) return;
   await addHistory(ctx, 'crop_log', data.id, 'created', { field_id: fieldId });
+  revalidatePath('/farm/crops');
+}
+
+export async function createCropActivityTemplate(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+
+  const templateName = String(formData.get('templateName') ?? '').trim();
+  const activityType = String(formData.get('activityType') ?? '').trim();
+  if (!templateName || !activityType) return;
+
+  const status = String(formData.get('status') ?? 'planned').trim();
+  if (!CROP_ACTIVITY_STATUS_SET.has(status)) return;
+
+  const { data } = await ctx.supabase.from('crop_activity_templates').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    template_name: templateName,
+    activity_type: activityType,
+    field_id: toNullable(formData.get('fieldId')),
+    block_name: toNullable(formData.get('blockName')),
+    crop_name: toNullable(formData.get('cropName')),
+    cultivar: toNullable(formData.get('cultivar')),
+    season: toNullable(formData.get('season')),
+    planned_date: toNullable(formData.get('plannedDate')),
+    operator_profile_id: toNullable(formData.get('operatorProfileId')),
+    team_name: toNullable(formData.get('teamName')),
+    equipment_used: toNullable(formData.get('equipmentUsed')),
+    input_product: toNullable(formData.get('inputProduct')),
+    input_rate: toNullableNumber(formData.get('inputRate')),
+    input_unit: toNullable(formData.get('inputUnit')),
+    conditions: toNullable(formData.get('conditions')),
+    observed_issues: toNullable(formData.get('observedIssues')),
+    status,
+    created_by: ctx.profile.id
+  }).select('id').single();
+
+  if (!data?.id) return;
+  await addHistory(ctx, 'crop_activity_template', data.id, 'created', { activity_type: activityType, template_name: templateName });
+  revalidatePath('/farm/crops');
+}
+
+export async function instantiateCropActivityTemplate(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+
+  const templateId = String(formData.get('templateId') ?? '').trim();
+  if (!templateId) return;
+
+  const { data: template } = await ctx.supabase
+    .from('crop_activity_templates')
+    .select('*')
+    .eq('id', templateId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+
+  if (!template) return;
+
+  const plannedDate = toNullable(formData.get('plannedDate')) ?? template.planned_date;
+  const status = String(formData.get('status') ?? 'planned').trim();
+  if (!CROP_ACTIVITY_STATUS_SET.has(status)) return;
+
+  const { data } = await ctx.supabase.from('crop_activities').insert({
+    workshop_account_id: ctx.profile.workshop_account_id,
+    template_id: template.id,
+    activity_type: template.activity_type,
+    field_id: toNullable(formData.get('fieldId')) ?? template.field_id,
+    block_name: toNullable(formData.get('blockName')) ?? template.block_name,
+    crop_name: toNullable(formData.get('cropName')) ?? template.crop_name,
+    cultivar: toNullable(formData.get('cultivar')) ?? template.cultivar,
+    season: toNullable(formData.get('season')) ?? template.season,
+    planned_date: plannedDate,
+    operator_profile_id: toNullable(formData.get('operatorProfileId')) ?? template.operator_profile_id,
+    team_name: toNullable(formData.get('teamName')) ?? template.team_name,
+    equipment_used: toNullable(formData.get('equipmentUsed')) ?? template.equipment_used,
+    input_product: toNullable(formData.get('inputProduct')) ?? template.input_product,
+    input_rate: toNullableNumber(formData.get('inputRate')) ?? template.input_rate,
+    input_unit: toNullable(formData.get('inputUnit')) ?? template.input_unit,
+    conditions: toNullable(formData.get('conditions')) ?? template.conditions,
+    observed_issues: toNullable(formData.get('observedIssues')) ?? template.observed_issues,
+    status,
+    created_by: ctx.profile.id
+  }).select('id').single();
+
+  if (!data?.id) return;
+  await addHistory(ctx, 'crop_activity', data.id, 'instantiated_from_template', { template_id: template.id });
+  revalidatePath('/farm/crops');
+}
+
+export async function transitionCropActivity(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+
+  const activityId = String(formData.get('activityId') ?? '').trim();
+  const nextStatus = String(formData.get('nextStatus') ?? '').trim();
+  const shouldSignOff = String(formData.get('signOff') ?? '') === 'on';
+  if (!activityId || !CROP_ACTIVITY_STATUS_SET.has(nextStatus)) return;
+
+  const { data: activity } = await ctx.supabase
+    .from('crop_activities')
+    .select('id,status')
+    .eq('id', activityId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  if (!activity) return;
+
+  const allowed = CROP_ACTIVITY_TRANSITIONS[activity.status as (typeof CROP_ACTIVITY_STATUSES)[number]];
+  if (!allowed?.has(nextStatus as (typeof CROP_ACTIVITY_STATUSES)[number])) return;
+
+  const nowIso = new Date().toISOString();
+  const patch: Record<string, unknown> = { status: nextStatus };
+  if (nextStatus === 'in_progress') {
+    patch.actual_start_at = nowIso;
+  }
+  if (nextStatus === 'completed') {
+    patch.actual_end_at = nowIso;
+  }
+  if (shouldSignOff && isManager(ctx.profile.role)) {
+    patch.supervisor_signoff_profile_id = ctx.profile.id;
+    patch.supervisor_signoff_at = nowIso;
+  }
+
+  await ctx.supabase.from('crop_activities').update(patch).eq('id', activityId).eq('workshop_account_id', ctx.profile.workshop_account_id);
+  await addHistory(ctx, 'crop_activity', activityId, 'status_changed', { from: activity.status, to: nextStatus, sign_off: shouldSignOff && isManager(ctx.profile.role) });
   revalidatePath('/farm/crops');
 }
 
