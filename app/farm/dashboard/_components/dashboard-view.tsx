@@ -14,6 +14,12 @@ type DashboardMetric = {
   activeReminders: number;
   expiringDocuments: number;
   workerCount: number;
+  maintenanceBreakdowns24h: number;
+  taskCompletions24h: number;
+  medianIssueLogMinutes: number;
+  criticalDocumentCoveragePct: number;
+  documentExpiryCompletenessPct: number;
+  overdueReminderResolutionRatePct: number;
 };
 
 const currency = new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' });
@@ -22,27 +28,27 @@ const variantMeta: Record<DashboardVariant, { title: string; subtitle: string; f
   owner: {
     title: 'Owner dashboard',
     subtitle: 'Financial and operational risk indicators across the farm.',
-    focuses: ['openIncidents', 'activeReminders', 'spend30dCents', 'overdueTasks', 'overdueIncidents', 'expiringDocuments']
+    focuses: ['spend30dCents', 'maintenanceBreakdowns24h', 'medianIssueLogMinutes', 'criticalDocumentCoveragePct', 'documentExpiryCompletenessPct', 'overdueReminderResolutionRatePct']
   },
   'farm-manager': {
     title: 'Farm manager dashboard',
     subtitle: 'Execution control for team throughput, assets, and urgent blockers.',
-    focuses: ['openTasks', 'openMaintTasks', 'activeAssets', 'workerCount', 'overdueTasks', 'activeReminders']
+    focuses: ['openTasks', 'taskCompletions24h', 'openMaintTasks', 'medianIssueLogMinutes', 'overdueTasks', 'overdueReminderResolutionRatePct']
   },
   production: {
     title: 'Production dashboard',
     subtitle: 'Day-to-day execution for tasks, livestock follow-ups, and field operations.',
-    focuses: ['openTasks', 'overdueTasks', 'activeReminders', 'openIncidents', 'workerCount', 'activeAssets']
+    focuses: ['openTasks', 'taskCompletions24h', 'activeAssets', 'maintenanceBreakdowns24h', 'openIncidents', 'workerCount']
   },
   workshop: {
     title: 'Workshop dashboard',
     subtitle: 'Maintenance and incident response tracking for service teams.',
-    focuses: ['openMaintTasks', 'activeAssets', 'overdueTasks', 'overdueIncidents', 'activeReminders', 'openIncidents']
+    focuses: ['openMaintTasks', 'maintenanceBreakdowns24h', 'taskCompletions24h', 'overdueTasks', 'overdueIncidents', 'medianIssueLogMinutes']
   },
   compliance: {
     title: 'Compliance dashboard',
     subtitle: 'Expiry, overdue incidents, and control-point exceptions.',
-    focuses: ['expiringDocuments', 'overdueIncidents', 'activeReminders', 'openIncidents', 'overdueTasks', 'workerCount']
+    focuses: ['expiringDocuments', 'criticalDocumentCoveragePct', 'documentExpiryCompletenessPct', 'overdueReminderResolutionRatePct', 'overdueIncidents', 'openIncidents']
   }
 };
 
@@ -56,7 +62,13 @@ const metricMeta: Record<keyof DashboardMetric, { label: string; tone: string; f
   overdueIncidents: { label: 'Overdue incidents (SLA)', tone: 'text-red-700' },
   activeReminders: { label: 'Open reminders', tone: 'text-orange-700' },
   expiringDocuments: { label: 'Docs expiring (30d)', tone: 'text-fuchsia-700' },
-  workerCount: { label: 'Active workforce', tone: 'text-cyan-700' }
+  workerCount: { label: 'Active workforce', tone: 'text-cyan-700' },
+  maintenanceBreakdowns24h: { label: 'Maint/breakdowns (24h)', tone: 'text-violet-700' },
+  taskCompletions24h: { label: 'Task completions (24h)', tone: 'text-emerald-700' },
+  medianIssueLogMinutes: { label: 'Median issue log time (min)', tone: 'text-amber-700' },
+  criticalDocumentCoveragePct: { label: 'Critical doc coverage', tone: 'text-fuchsia-700', formatter: (v) => `${v.toFixed(1)}%` },
+  documentExpiryCompletenessPct: { label: 'Doc expiry completeness', tone: 'text-purple-700', formatter: (v) => `${v.toFixed(1)}%` },
+  overdueReminderResolutionRatePct: { label: 'Overdue reminder resolution', tone: 'text-orange-700', formatter: (v) => `${v.toFixed(1)}%` },
 };
 
 export function FarmDashboardView({ variant, metrics }: { variant: DashboardVariant; metrics: DashboardMetric }) {

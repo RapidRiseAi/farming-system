@@ -1,19 +1,18 @@
 import { createClient } from '@/lib/supabase/server';
 
+type AdminSummary = {
+  maintenance_breakdown_logged_24h?: number;
+  task_completion_24h?: number;
+  median_issue_time_to_log_minutes?: number;
+  critical_document_coverage_pct?: number;
+  document_expiry_completeness_pct?: number;
+  overdue_reminder_resolution_rate_pct?: number;
+};
+
 export async function getFarmDashboardMetrics(farmId: string) {
   const supabase = await createClient();
-  const [
-    { count: openTasks },
-    { count: openIncidents },
-    { count: activeAssets },
-    { data: latestExpenses },
-    { count: openMaintTasks },
-    { count: overdueTasks },
-    { count: workerCount },
-    { count: remindersOpen },
-    { count: overdueIncidents },
-    { count: expiringDocuments }
-  ] = await Promise.all([
+
+  const [{ count: openTasks }, { count: openIncidents }, { count: activeAssets }, { data: latestExpenses }, { count: openMaintTasks }, { count: overdueTasks }, { count: workerCount }, { count: remindersOpen }, { count: overdueIncidents }, { count: expiringDocuments }, adminReportRes] = await Promise.all([
     supabase.from('farm_tasks').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).in('status', ['open', 'in_progress', 'blocked']),
     supabase.from('farm_incidents').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).in('status', ['reported', 'under_response', 'contained', 'under_investigation']),
     supabase.from('farm_assets').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).neq('status', 'retired'),
@@ -23,8 +22,11 @@ export async function getFarmDashboardMetrics(farmId: string) {
     supabase.from('workforce_profiles').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).eq('active', true),
     supabase.from('farm_reminders').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).eq('status', 'open'),
     supabase.from('farm_incidents').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).in('status', ['reported', 'under_response', 'contained', 'under_investigation']).lt('occurred_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString()),
-    supabase.from('farm_documents').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).eq('status', 'active').gte('expiry_date', new Date().toISOString().slice(0, 10)).lte('expiry_date', new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().slice(0, 10))
+    supabase.from('farm_documents').select('id', { count: 'exact', head: true }).eq('workshop_account_id', farmId).eq('status', 'active').gte('expiry_date', new Date().toISOString().slice(0, 10)).lte('expiry_date', new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().slice(0, 10)),
+    supabase.rpc('get_farm_dashboard_admin_report', { p_workshop_account_id: farmId })
   ]);
+
+  const adminSummary = (adminReportRes.data as { summary?: AdminSummary } | null)?.summary;
 
   return {
     openTasks: openTasks ?? 0,
@@ -36,7 +38,13 @@ export async function getFarmDashboardMetrics(farmId: string) {
     overdueIncidents: overdueIncidents ?? 0,
     activeReminders: remindersOpen ?? 0,
     expiringDocuments: expiringDocuments ?? 0,
-    workerCount: workerCount ?? 0
+    workerCount: workerCount ?? 0,
+    maintenanceBreakdowns24h: adminSummary?.maintenance_breakdown_logged_24h ?? 0,
+    taskCompletions24h: adminSummary?.task_completion_24h ?? 0,
+    medianIssueLogMinutes: adminSummary?.median_issue_time_to_log_minutes ?? 0,
+    criticalDocumentCoveragePct: adminSummary?.critical_document_coverage_pct ?? 0,
+    documentExpiryCompletenessPct: adminSummary?.document_expiry_completeness_pct ?? 0,
+    overdueReminderResolutionRatePct: adminSummary?.overdue_reminder_resolution_rate_pct ?? 0
   };
 }
 
