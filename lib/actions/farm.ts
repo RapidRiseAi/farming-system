@@ -44,6 +44,8 @@ const INCIDENT_TRANSITIONS: Record<IncidentStatus, Set<IncidentStatus>> = {
   under_investigation: new Set(['closed']),
   closed: new Set()
 };
+const FARM_VISITOR_TYPES = ['person', 'organization', 'contractor', 'delivery', 'regulator', 'other'] as const;
+const FARM_VISITOR_TYPE_SET = new Set<string>(FARM_VISITOR_TYPES);
 
 const FARM_WORK_REQUEST_STATUSES = ['new', 'triaged', 'waiting_approval', 'approved', 'actioned', 'closed', 'rejected'] as const;
 const FARM_WORK_ORDER_STATUSES = ['open', 'triaged', 'approved', 'in_progress', 'waiting_parts', 'resolved', 'closed'] as const;
@@ -1117,6 +1119,134 @@ async function syncIncidentImpacts(
   if (rows.length) {
     await ctx.supabase.from('farm_incident_impacts').insert(rows);
   }
+}
+
+async function syncFarmVisitPermittedAreas(ctx: NonNullable<Awaited<ReturnType<typeof getFarmContext>>>, visitId: string, areaIds: string[]) {
+  await ctx.supabase
+    .from('farm_visit_permitted_areas')
+    .delete()
+    .eq('farm_visit_id', visitId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  if (!areaIds.length) return;
+  await ctx.supabase.from('farm_visit_permitted_areas').insert(
+    areaIds.map((areaId) => ({
+      workshop_account_id: ctx.profile.workshop_account_id,
+      farm_visit_id: visitId,
+      area_id: areaId
+    }))
+  );
+}
+
+export async function createFarmVisit(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+
+  const visitorName = String(formData.get('visitorName') ?? '').trim();
+  const purpose = String(formData.get('purpose') ?? '').trim();
+  const visitorType = String(formData.get('visitorType') ?? 'person').trim();
+  if (!visitorName || !purpose || !FARM_VISITOR_TYPE_SET.has(visitorType)) return;
+
+  const permittedAreaIds = toIdList(formData.getAll('permittedAreaIds'));
+  const checkInNow = String(formData.get('checkInNow') ?? '') === 'on';
+  const checkedInAt = toNullable(formData.get('checkedInAt')) ?? (checkInNow ? new Date().toISOString() : null);
+
+  const { data: visit } = await ctx.supabase
+    .from('farm_visits')
+    .insert({
+      workshop_account_id: ctx.profile.workshop_account_id,
+      visitor_type: visitorType,
+      visitor_name: visitorName,
+      visitor_org: toNullable(formData.get('visitorOrg')),
+      id_registration: toNullable(formData.get('idRegistration')),
+      purpose,
+      approved_by_profile_id: toNullable(formData.get('approvedByProfileId')),
+      escort_required: String(formData.get('escortRequired') ?? '') === 'on',
+      biosecurity_complete: String(formData.get('biosecurityComplete') ?? '') === 'on',
+      checked_in_at: checkedInAt,
+      notes: toNullable(formData.get('notes')),
+      exception_notes: toNullable(formData.get('exceptionNotes')),
+      created_by: ctx.profile.id
+    })
+    .select('id')
+    .single();
+  if (!visit?.id) return;
+
+  await syncFarmVisitPermittedAreas(ctx, visit.id, permittedAreaIds);
+  await addHistory(ctx, 'farm_visit', visit.id, 'created', { visitor_name: visitorName, visitor_type: visitorType, checked_in_at: checkedInAt });
+  revalidatePath('/farm/visitors');
+  revalidatePath('/farm/dashboard');
+}
+
+export async function updateFarmVisitDetails(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const visitId = String(formData.get('visitId') ?? '').trim();
+  if (!visitId) return;
+
+  const { data: visit } = await ctx.supabase
+    .from('farm_visits')
+    .select('id')
+    .eq('id', visitId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  if (!visit) return;
+
+  const permittedAreaIds = toIdList(formData.getAll('permittedAreaIds'));
+  await ctx.supabase
+    .from('farm_visits')
+    .update({
+      approved_by_profile_id: toNullable(formData.get('approvedByProfileId')),
+      escort_required: String(formData.get('escortRequired') ?? '') === 'on',
+      biosecurity_complete: String(formData.get('biosecurityComplete') ?? '') === 'on',
+      notes: toNullable(formData.get('notes')),
+      exception_notes: toNullable(formData.get('exceptionNotes'))
+    })
+    .eq('id', visitId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id);
+
+  await syncFarmVisitPermittedAreas(ctx, visitId, permittedAreaIds);
+  await addHistory(ctx, 'farm_visit', visitId, 'updated', { source: 'details' });
+  revalidatePath('/farm/visitors');
+}
+
+export async function gateCheckVisit(formData: FormData): Promise<void> {
+  const ctx = await getFarmContext();
+  if (!ctx) return;
+  const visitId = String(formData.get('visitId') ?? '').trim();
+  const mode = String(formData.get('mode') ?? '').trim();
+  if (!visitId || (mode !== 'in' && mode !== 'out')) return;
+
+  const { data: visit } = await ctx.supabase
+    .from('farm_visits')
+    .select('id,checked_in_at,checked_out_at')
+    .eq('id', visitId)
+    .eq('workshop_account_id', ctx.profile.workshop_account_id)
+    .maybeSingle();
+  if (!visit) return;
+
+  const nowIso = new Date().toISOString();
+  if (mode === 'in') {
+    await ctx.supabase
+      .from('farm_visits')
+      .update({
+        checked_in_at: visit.checked_in_at ?? nowIso,
+        checked_out_at: null
+      })
+      .eq('id', visitId)
+      .eq('workshop_account_id', ctx.profile.workshop_account_id);
+    await addHistory(ctx, 'farm_visit', visitId, 'checked_in', { checked_in_at: visit.checked_in_at ?? nowIso });
+  } else {
+    if (!visit.checked_in_at) return;
+    await ctx.supabase
+      .from('farm_visits')
+      .update({ checked_out_at: nowIso })
+      .eq('id', visitId)
+      .eq('workshop_account_id', ctx.profile.workshop_account_id);
+    await addHistory(ctx, 'farm_visit', visitId, 'checked_out', { checked_out_at: nowIso });
+  }
+
+  revalidatePath('/farm/visitors');
 }
 
 export async function logFarmExpense(formData: FormData): Promise<void> {
