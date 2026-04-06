@@ -4,6 +4,13 @@ import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui/card';
 import { createFarmAsset, fastUpdateAssetMeter, overrideAssetServiceDue, updateFarmAsset } from '@/lib/actions/farm';
 
+const FARM_ASSET_STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'maintenance_due', label: 'Maintenance due' },
+  { value: 'in_repair', label: 'In repair' },
+  { value: 'retired', label: 'Retired' }
+] as const;
+
 export default async function FarmAssetsPage() {
   const supabase = await createClient();
   const {
@@ -39,7 +46,13 @@ export default async function FarmAssetsPage() {
           <input name="assetCode" required className="rounded-lg border px-3 py-2" placeholder="Asset code" />
           <input name="name" required className="rounded-lg border px-3 py-2" placeholder="Asset name" />
           <select name="assetType" className="rounded-lg border px-3 py-2"><option value="equipment">Equipment</option><option value="vehicle">Vehicle</option><option value="building">Building</option><option value="irrigation">Irrigation</option><option value="storage">Storage</option><option value="other">Other</option></select>
-          <select name="status" className="rounded-lg border px-3 py-2"><option value="active">Active</option><option value="maintenance_due">Maintenance due</option><option value="in_repair">In repair</option></select>
+          <select name="status" className="rounded-lg border px-3 py-2">
+            {FARM_ASSET_STATUS_OPTIONS.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
+          </select>
           <input name="make" required className="rounded-lg border px-3 py-2" placeholder="Make" />
           <input name="model" required className="rounded-lg border px-3 py-2" placeholder="Model" />
           <input name="serialNumber" required className="rounded-lg border px-3 py-2" placeholder="Serial number" />
@@ -67,7 +80,13 @@ export default async function FarmAssetsPage() {
               <input defaultValue={asset.site_name || ''} name="siteName" className="rounded-lg border px-2 py-1.5 text-sm" placeholder="Site" />
               <input defaultValue={asset.current_hours ?? ''} name="currentHours" type="number" className="rounded-lg border px-2 py-1.5 text-sm" placeholder="Hours" />
               <input defaultValue={asset.current_odometer_km ?? ''} name="currentOdometerKm" type="number" className="rounded-lg border px-2 py-1.5 text-sm" placeholder="Km" />
-              <select defaultValue={asset.status} name="status" className="rounded-lg border px-2 py-1.5 text-sm sm:col-span-2"><option value="active">Active</option><option value="maintenance_due">Maintenance due</option><option value="in_repair">In repair</option><option value="retired">Archived</option></select>
+              <select defaultValue={asset.status} name="status" className="rounded-lg border px-2 py-1.5 text-sm sm:col-span-2">
+                {FARM_ASSET_STATUS_OPTIONS.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
               <select defaultValue={asset.service_interval_type} name="serviceIntervalType" className="rounded-lg border px-2 py-1.5 text-sm"><option value="hours">Hours</option><option value="distance_km">Distance km</option><option value="days">Days</option></select>
               <input defaultValue={asset.service_interval_value ?? ''} name="serviceIntervalValue" type="number" className="rounded-lg border px-2 py-1.5 text-sm" placeholder="Interval" />
               <input defaultValue={asset.last_service_meter ?? ''} name="lastServiceMeter" type="number" className="rounded-lg border px-2 py-1.5 text-sm" placeholder="Last service meter" />

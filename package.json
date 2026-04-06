@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node tests/rls-sanity.test.mjs && node tests/timeline-feature.test.mjs && node tests/farm-onboarding-and-workflows.test.mjs && node tests/farm-authorization-boundaries.test.mjs && node tests/farm-e2e-smoke.test.mjs",
+    "test": "node tests/rls-sanity.test.mjs && node tests/timeline-feature.test.mjs && node tests/farm-onboarding-and-workflows.test.mjs && node tests/farm-authorization-boundaries.test.mjs && node tests/farm-e2e-smoke.test.mjs && node tests/farm-assets-status-and-actions.test.mjs",
     "format": "prettier --write .",
     "db:seed": "psql \"$SUPABASE_DB_URL\" -f supabase/seed/seed.sql",
     "db:migrate": "bash scripts/apply-migrations.sh"
