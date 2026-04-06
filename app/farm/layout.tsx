@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { SignOutButton } from '@/components/layout/sign-out-button';
+import { FarmLayoutSearch } from '@/components/farm/farm-layout-search';
+import { FarmQuickActions } from '@/components/farm/farm-quick-actions';
 
 const links = [
   { href: '/farm/dashboard', label: 'Dashboard' },
@@ -32,6 +34,7 @@ export default function FarmLayout({ children }: { children: ReactNode }) {
             <p className="text-lg font-semibold text-emerald-950">Operations Control</p>
           </div>
           <nav className="flex flex-wrap items-center gap-2 text-sm">
+            <FarmLayoutSearch />
             {links.map((link) => (
               <Link key={link.href} href={link.href} className="rounded-full border border-emerald-200 px-3 py-1.5 font-medium text-emerald-900 hover:bg-emerald-100">
                 {link.label}
@@ -39,6 +42,9 @@ export default function FarmLayout({ children }: { children: ReactNode }) {
             ))}
             <SignOutButton />
           </nav>
+          <div className="w-full">
+            <FarmQuickActions />
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">{children}</main>

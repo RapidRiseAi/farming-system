@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui/card';
-import { reportFarmIncident, updateIncidentWorkflow } from '@/lib/actions/farm';
+import { updateIncidentWorkflow } from '@/lib/actions/farm';
+import { IncidentReportComposer } from '@/components/farm/incident-report-composer';
 
-export default async function FarmIncidentsPage({ searchParams }: { searchParams: Promise<{ status?: string; page?: string }> }) {
+export default async function FarmIncidentsPage({ searchParams }: { searchParams: Promise<{ status?: string; page?: string; template?: string }> }) {
   const params = await searchParams;
   const selectedStatus = params.status ?? 'all';
   const page = Math.max(Number(params.page ?? '1') || 1, 1);
@@ -37,30 +38,13 @@ export default async function FarmIncidentsPage({ searchParams }: { searchParams
     <section className="space-y-6">
       <Card className="rounded-2xl border border-amber-200 bg-white p-4">
         <h1 className="text-lg font-semibold text-amber-950">Incident workflow</h1>
-        <form action={reportFarmIncident} className="mt-4 grid gap-3 sm:grid-cols-2">
-          <input name="title" placeholder="Incident title" className="rounded-lg border px-3 py-2" required />
-          <input name="occurredAt" type="datetime-local" className="rounded-lg border px-3 py-2" required />
-          <select name="incidentClass" className="rounded-lg border px-3 py-2">
-            <option value="safety">Safety</option><option value="security_theft">Security/Theft</option><option value="animal_health">Animal health</option><option value="crop_health">Crop health</option><option value="utility_failure">Utility failure</option><option value="environmental">Environmental</option><option value="quality">Quality</option><option value="visitor">Visitor</option><option value="vehicle_accident">Vehicle/accident</option>
-          </select>
-          <select name="incidentType" className="rounded-lg border px-3 py-2"><option value="safety">Safety</option><option value="biosecurity">Biosecurity</option><option value="equipment">Equipment</option><option value="environment">Environment</option><option value="security">Security</option><option value="other">Other</option></select>
-          <select name="severity" className="rounded-lg border px-3 py-2"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select>
-          <select name="ownerProfileId" className="rounded-lg border px-3 py-2"><option value="">Assign owner</option>{members?.map((member) => <option key={member.id} value={member.id}>{member.full_name || 'Unnamed'}</option>)}</select>
-          <select name="locationAreaId" className="rounded-lg border px-3 py-2"><option value="">Location area (optional)</option>{areas?.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}</select>
-          <input name="rootCauseCategory" placeholder="Root cause category (optional)" className="rounded-lg border px-3 py-2" />
-          <label className="inline-flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" name="escalationRequired" />Escalation required</label>
-          <textarea name="description" className="sm:col-span-2 min-h-24 rounded-lg border px-3 py-2" placeholder="Describe incident context and immediate actions" required />
-          <select multiple name="impactedProfileIds" className="sm:col-span-2 rounded-lg border px-3 py-2">
-            {members?.map((member) => <option key={member.id} value={member.id}>{member.full_name || 'Unnamed member'}</option>)}
-          </select>
-          <select multiple name="impactedAnimalIds" className="sm:col-span-2 rounded-lg border px-3 py-2">
-            {animals?.map((animal) => <option key={animal.id} value={animal.id}>{animal.animal_id}</option>)}
-          </select>
-          <select multiple name="impactedAssetIds" className="sm:col-span-2 rounded-lg border px-3 py-2">
-            {assets?.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
-          </select>
-          <button className="sm:col-span-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white">Submit incident</button>
-        </form>
+        <IncidentReportComposer
+          initialTemplate={params.template}
+          members={(members ?? []).map((member) => ({ id: member.id, label: member.full_name || 'Unnamed member' }))}
+          areas={(areas ?? []).map((area) => ({ id: area.id, label: area.name }))}
+          animals={(animals ?? []).map((animal) => ({ id: animal.id, label: animal.animal_id }))}
+          assets={(assets ?? []).map((asset) => ({ id: asset.id, label: asset.name }))}
+        />
       </Card>
 
       <div className="flex gap-2 text-sm">

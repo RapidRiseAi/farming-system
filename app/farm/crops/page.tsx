@@ -1,11 +1,13 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui/card';
-import { createCropActivityTemplate, createCropField, createCropLog, instantiateCropActivityTemplate, transitionCropActivity } from '@/lib/actions/farm';
+import { createCropActivityTemplate, createCropField, instantiateCropActivityTemplate, transitionCropActivity } from '@/lib/actions/farm';
+import { CropLogComposer } from '@/components/farm/crop-log-composer';
 
 const ACTIVITY_STATUSES = ['planned', 'in_progress', 'completed', 'blocked', 'cancelled'];
 
-export default async function FarmCropsPage() {
+export default async function FarmCropsPage({ searchParams }: { searchParams: Promise<{ template?: string }> }) {
+  const params = await searchParams;
   const supabase = await createClient();
   const {
     data: { user }
@@ -91,14 +93,7 @@ export default async function FarmCropsPage() {
 
       <Card className="rounded-2xl border bg-white p-4">
         <h2 className="font-semibold">Log crop activity</h2>
-        <form action={createCropLog} className="mt-2 grid gap-2 sm:grid-cols-4">
-          <select name="fieldId" className="rounded border px-2 py-1.5">{fields?.map((field) => <option key={field.id} value={field.id}>{field.name}</option>)}</select>
-          <select name="logType" className="rounded border px-2 py-1.5"><option value="planting">Planting</option><option value="spraying">Spraying</option><option value="fertilizing">Fertilizing</option><option value="irrigation">Irrigation</option><option value="scouting">Scouting</option><option value="harvest">Harvest</option><option value="other">Other</option></select>
-          <input name="logDate" type="date" className="rounded border px-2 py-1.5" required />
-          <input name="cropName" className="rounded border px-2 py-1.5" placeholder="Crop name" />
-          <textarea name="notes" className="sm:col-span-4 rounded border px-2 py-1.5" placeholder="Notes" />
-          <button className="sm:col-span-4 rounded border px-2 py-1.5">Save log</button>
-        </form>
+        <CropLogComposer fields={(fields ?? []).map((field) => ({ id: field.id, name: field.name }))} initialTemplate={params.template} />
       </Card>
 
       <div className="grid gap-3 md:grid-cols-2">
