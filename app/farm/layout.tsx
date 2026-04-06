@@ -16,6 +16,8 @@ const links = [
   { href: '/farm/stores', label: 'Stores' },
   { href: '/farm/documents', label: 'Documents' },
   { href: '/farm/incidents', label: 'Incidents' },
+  { href: '/farm/search', label: 'Search' },
+  { href: '/farm/reports', label: 'Reports' },
   { href: '/farm/expenses', label: 'Expenses' },
   { href: '/farm/structure', label: 'Structure' }
 ];
